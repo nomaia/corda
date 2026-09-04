@@ -832,37 +832,66 @@ function parseCifraClubHtml(html) {
 }
 
 // ══════════════════════════════════════════════════════════
-// URL FETCH
+// URL FETCH  (multi-proxy fallback)
 // ══════════════════════════════════════════════════════════
+
+// Free CORS proxies tried in order until one succeeds
+const CORS_PROXIES = [
+  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+  u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+];
+
+// fetch with manual timeout (AbortSignal.timeout not in all browsers)
+function fetchWithTimeout(url, ms) {
+  const ctrl  = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal })
+    .finally(() => clearTimeout(timer));
+}
+
 async function fetchFromUrl() {
   const rawUrl = document.getElementById('cifra-url').value.trim();
   if (!rawUrl) { toast('Cole a URL do Cifra Club'); return; }
 
-  // Normalise: ensure it has a protocol
   const url = /^https?:\/\//i.test(rawUrl) ? rawUrl : 'https://' + rawUrl;
 
   const btn = document.getElementById('fetch-btn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Buscando…';
 
+  let html = null;
+  let lastErr = '';
+
+  for (let i = 0; i < CORS_PROXIES.length; i++) {
+    const proxyUrl = CORS_PROXIES[i](url);
+    btn.innerHTML  = `<span class="spinner"></span> Tentativa ${i+1}/3…`;
+    try {
+      const resp = await fetchWithTimeout(proxyUrl, 12000);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      html = await resp.text();
+      if (html && html.length > 200) break;   // got something useful
+      html = null;
+      lastErr = 'Resposta vazia';
+    } catch (e) {
+      lastErr = e.name === 'AbortError' ? 'Timeout' : (e.message || 'Erro de rede');
+      console.warn(`Proxy ${i+1} falhou:`, lastErr);
+    }
+  }
+
   try {
-    // Try allorigins.win (free CORS proxy)
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const html = await resp.text();
+    if (!html) throw new Error(`Todos os proxies falharam (${lastErr}). Use a aba "Colar texto".`);
 
     const parsed = parseCifraClubHtml(html);
-    if (!parsed) throw new Error('Não encontrei a cifra na página. Tente copiar o texto manualmente.');
+    if (!parsed) throw new Error('Cifra não encontrada na página. Tente a aba "Colar texto".');
 
     blocks = parseCifraText(parsed.sheetText);
     if (!blocks.length) throw new Error('Cifra vazia ou formato não reconhecido.');
 
-    // Populate meta — prefer what user already typed
-    const setMeta = (key, val) => {
-      if (val) {
-        document.getElementById(`ps-${key}`).value = val;
-        document.getElementById(`ed-${key}`).value = val;
+    const setMeta = (k, v) => {
+      if (v) {
+        document.getElementById(`ps-${k}`).value = v;
+        document.getElementById(`ed-${k}`).value = v;
       }
     };
     setMeta('title',  parsed.title  || document.getElementById('ps-title').value);
@@ -877,7 +906,9 @@ async function fetchFromUrl() {
 
   } catch (e) {
     console.error(e);
-    toast('❌ ' + (e.message || 'Erro ao buscar a cifra'));
+    // Show error and switch to text tab so user has a clear next step
+    toast('❌ ' + e.message);
+    switchTab('txt');
   } finally {
     btn.disabled = false;
     btn.innerHTML = 'Buscar →';
