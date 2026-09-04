@@ -181,8 +181,10 @@
     box-shadow: 0 2px 12px rgba(0,0,0,.5);
   }
   #reader-loader {
+    display: none;
     position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    color: #fff; font-size: .9rem; text-align: center;
+    color: #fff; font-size: .9rem; text-align: center; z-index: 10;
+    pointer-events: none;
   }
   .spinner {
     width: 36px; height: 36px; border: 3px solid rgba(255,255,255,.2);
@@ -335,9 +337,8 @@
     <button id="reader-close" onclick="closeReader()">✕</button>
     <div id="reader-title">–</div>
   </div>
-  <div id="pdf-container">
-    <div id="reader-loader"><div class="spinner"></div>Abrindo PDF...</div>
-  </div>
+  <div id="pdf-container"></div>
+  <div id="reader-loader"><div class="spinner"></div>Abrindo PDF...</div>
   <div id="reader-controls">
     <button class="ctrl-btn" id="btn-prev" onclick="changePage(-1)">◀ Anterior</button>
     <span id="page-info">–</span>
@@ -604,16 +605,13 @@ function toggleInPlaylist(pl) {
 ══════════════════════════════════════════ */
 async function openPDF(filename) {
   const url = `${RAW_BASE}/pdfs/${encodeURIComponent(filename)}`;
-  document.getElementById('reader-title').textContent =
-    filename.replace(/\.pdf$/i, '');
-  document.getElementById('reader-loader').style.display = 'block';
+  const loader = document.getElementById('reader-loader');
+  document.getElementById('reader-title').textContent = filename.replace(/\.pdf$/i, '');
   document.getElementById('pdf-container').innerHTML = '';
-  document.getElementById('pdf-container').appendChild(
-    document.getElementById('reader-loader')
-  );
+  document.getElementById('reader-controls').style.display = 'none';
   document.getElementById('page-info').textContent = '–';
-  document.getElementById('btn-prev').disabled = true;
-  document.getElementById('btn-next').disabled = true;
+  loader.innerHTML = '<div class="spinner"></div>Abrindo PDF...';
+  loader.style.display = 'block';
   document.getElementById('reader-screen').classList.add('open');
   document.body.style.overflow = 'hidden';
 
@@ -621,17 +619,16 @@ async function openPDF(filename) {
     pdfDoc = await pdfjsLib.getDocument({ url }).promise;
     totalPage = pdfDoc.numPages;
     curPage = 1;
+    loader.style.display = 'none';
     await renderAllPages();
   } catch (e) {
-    document.getElementById('reader-loader').innerHTML =
-      '<p style="color:#f88">Erro ao abrir o PDF.<br>Verifique sua conexão.</p>';
+    loader.innerHTML = '<p style="color:#f88">Erro ao abrir o PDF.<br>Verifique sua conexão.</p>';
   }
 }
 
 async function renderAllPages() {
   const container = document.getElementById('pdf-container');
   container.innerHTML = '';
-  document.getElementById('reader-loader').style.display = 'none';
   document.getElementById('page-info').textContent = `${totalPage} página${totalPage !== 1 ? 's' : ''}`;
   document.getElementById('btn-prev').style.display = 'none';
   document.getElementById('btn-next').style.display = 'none';
