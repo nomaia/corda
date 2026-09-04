@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Corda — Admin</title>
+<style>
+  :root {
+    --primary:      #5C2B8C;
+    --primary-dark: #3D1570;
+    --primary-light:#7B4DB8;
+    --accent:       #D4A843;
+    --bg:           #F9F7FC;
+    --surface:      #FFFFFF;
+    --text:         #1C1426;
+    --text-muted:   #7B6B8C;
+    --border:       #E8E0F0;
+    --danger:       #C0392B;
+    --success:      #27AE60;
+    --radius:       10px;
+    --shadow:       0 2px 12px rgba(92,43,140,.1);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── SIDEBAR ── */
+  #layout { display: flex; min-height: 100vh; }
+  #sidebar {
+    width: 220px; background: var(--primary-dark); flex-shrink: 0;
+    display: flex; flex-direction: column;
+    position: fixed; top: 0; left: 0; bottom: 0;
+    box-shadow: 2px 0 16px rgba(0,0,0,.2);
+  }
+  .sidebar-logo {
+    padding: 24px 20px 20px;
+    color: #fff; font-size: 1.5rem; font-weight: 800; letter-spacing: .04em;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+  }
+  .sidebar-logo span { color: var(--accent); }
+  .sidebar-nav { flex: 1; padding: 12px 0; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 20px; color: rgba(255,255,255,.7);
+    cursor: pointer; border-left: 3px solid transparent;
+    font-size: .9rem; transition: all .15s;
+    user-select: none;
+  }
+  .nav-item:hover { color: #fff; background: rgba(255,255,255,.06); }
+  .nav-item.active {
+    color: #fff; background: rgba(255,255,255,.1);
+    border-left-color: var(--accent);
+  }
+  .nav-item .ni { font-size: 1.1rem; width: 22px; }
+  .sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid rgba(255,255,255,.1);
+    font-size: .75rem; color: rgba(255,255,255,.4);
+  }
+
+  /* ── MAIN ── */
+  #main {
+    margin-left: 220px; flex: 1; display: flex; flex-direction: column;
+  }
+  #topbar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 16px 28px; display: flex; align-items: center; gap: 16px;
+    position: sticky; top: 0; z-index: 50;
+    box-shadow: var(--shadow);
+  }
+  #topbar h2 { flex: 1; font-size: 1.15rem; font-weight: 700; color: var(--text); }
+  #pat-status {
+    font-size: .8rem; padding: 5px 12px; border-radius: 20px;
+    font-weight: 600; letter-spacing: .03em;
+  }
+  #pat-status.ok { background: #e6f9ee; color: var(--success); }
+  #pat-status.err { background: #fde8e8; color: var(--danger); }
+
+  .btn {
+    padding: 8px 18px; border: none; cursor: pointer;
+    border-radius: var(--radius); font-size: .875rem; font-weight: 600;
+    transition: all .15s; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-accent { background: var(--accent); color: #1C1426; }
+  .btn-accent:hover { filter: brightness(.9); }
+  .btn-ghost {
+    background: none; color: var(--primary);
+    border: 1.5px solid var(--primary);
+  }
+  .btn-ghost:hover { background: var(--primary); color: #fff; }
+  .btn-danger { background: none; color: var(--danger); border: 1.5px solid var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn:disabled { opacity: .5; cursor: default; }
+
+  /* ── CONTENT AREA ── */
+  #content { padding: 28px; flex: 1; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 24px; margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 1rem; font-weight: 700; margin-bottom: 16px;
+    color: var(--text); display: flex; align-items: center; gap: 8px;
+  }
+  .card-title .tag {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 20px; padding: 2px 10px;
+    font-size: .7rem; color: var(--text-muted); font-weight: 500;
+  }
+
+  /* ── PAT SETUP ── */
+  #pat-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #pat-input {
+    flex: 1; min-width: 200px; padding: 9px 14px;
+    border: 1.5px solid var(--border); border-radius: var(--radius);
+    font-size: .9rem; font-family: monospace; color: var(--text);
+    background: var(--bg); outline: none;
+    transition: border-color .15s;
+  }
+  #pat-input:focus { border-color: var(--primary); }
+  .pat-help {
+    font-size: .78rem; color: var(--text-muted); margin-top: 8px; line-height: 1.5;
+  }
+  .pat-help a { color: var(--primary); }
+
+  /* ── UPLOAD ZONE ── */
+  #drop-zone {
+    border: 2px dashed var(--border); border-radius: var(--radius);
+    padding: 40px 24px; text-align: center; cursor: pointer;
+    transition: all .2s; background: var(--bg);
+  }
+  #drop-zone.drag-over { border-color: var(--primary); background: #f0e8fb; }
+  #drop-zone .dz-icon { font-size: 2.5rem; margin-bottom: 10px; }
+  #drop-zone p { color: var(--text-muted); font-size: .9rem; }
+  #drop-zone strong { color: var(--primary); cursor: pointer; }
+  #file-input { display: none; }
+  #upload-queue { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .queue-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px;
+  }
+  .queue-name { flex: 1; font-size: .85rem; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .queue-size { font-size: .75rem; color: var(--text-muted); flex-shrink: 0; }
+  .queue-status { font-size: .85rem; flex-shrink: 0; }
+  .progress-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 6px; }
+  .progress-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width .3s; }
+
+  /* ── FILE MANAGER ── */
+  .fm-toolbar {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .fm-search {
+    flex: 1; min-width: 160px; padding: 8px 14px;
+    border: 1.5px solid var(--border); border-radius: var(--radius);
+    font-size: .875rem; color: var(--text); background: var(--bg); outline: none;
+  }
+  .fm-search:focus { border-color: var(--primary); }
+  #files-count { font-size: .8rem; color: var(--text-muted); }
+  .files-table { width: 100%; border-collapse: collapse; }
+  .files-table th {
+    text-align: left; padding: 10px 14px;
+    font-size: .72rem; color: var(--text-muted); font-weight: 700;
+    letter-spacing: .06em; text-transform: uppercase;
+    border-bottom: 2px solid var(--border);
+  }
+  .files-table td {
+    padding: 11px 14px; border-bottom: 1px solid var(--border);
+    font-size: .875rem; vertical-align: middle;
+  }
+  .files-table tr:last-child td { border-bottom: none; }
+  .files-table tr:hover td { background: var(--bg); }
+  .ft-name { font-weight: 600; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ft-size { color: var(--text-muted); }
+  .ft-actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .icon-btn {
+    background: none; border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 9px; cursor: pointer;
+    font-size: .85rem; color: var(--text-muted);
+    transition: all .15s;
+  }
+  .icon-btn:hover { border-color: var(--primary-light); color: var(--primary); }
+  .icon-btn.del:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* ── PLAYLISTS EDITOR ── */
+  .pl-grid { display: grid; grid-template-columns: 280px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .pl-grid { grid-template-columns: 1fr; } }
+  .pl-list { display: flex; flex-direction: column; gap: 6px; }
+  .pl-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; border-radius: 8px; cursor: pointer;
+    border: 1.5px solid transparent; background: var(--bg);
+    transition: all .15s;
+  }
+  .pl-item:hover { border-color: var(--border); }
+  .pl-item.selected { border-color: var(--primary); background: #f0e8fb; }
+  .pl-item-name { flex: 1; font-size: .9rem; font-weight: 600; }
+  .pl-item-count { font-size: .75rem; color: var(--text-muted); }
+  .pl-item-del {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); font-size: 1rem; padding: 2px 6px;
+    border-radius: 4px; transition: color .15s;
+  }
+  .pl-item-del:hover { color: var(--danger); }
+
+  .pl-editor-title {
+    font-size: .85rem; font-weight: 700; color: var(--text-muted);
+    letter-spacing: .06em; text-transform: uppercase; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .pl-editor-name {
+    font-size: 1.1rem; font-weight: 700; color: var(--primary);
+  }
+  .pl-pdf-grid { display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow-y: auto; }
+  .pl-pdf-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 8px;
+    background: var(--bg); border: 1px solid var(--border);
+  }
+  .pl-pdf-row input[type=checkbox] { accent-color: var(--primary); width: 16px; height: 16px; flex-shrink: 0; }
+  .pl-pdf-name { flex: 1; font-size: .875rem; font-weight: 500; }
+  .pl-pdf-row .move-btns { display: flex; gap: 4px; }
+  .move-btn {
+    background: none; border: 1px solid var(--border);
+    border-radius: 4px; padding: 2px 6px; cursor: pointer;
+    font-size: .8rem; color: var(--text-muted); transition: all .15s;
+  }
+  .move-btn:hover { border-color: var(--primary-light); color: var(--primary); }
+  .move-btn:disabled { opacity: .3; cursor: default; }
+
+  /* ── NEW PL FORM ── */
+  .new-pl-form { display: flex; gap: 8px; }
+  #new-pl-input {
+    flex: 1; padding: 8px 12px;
+    border: 1.5px solid var(--border); border-radius: var(--radius);
+    font-size: .875rem; color: var(--text); background: var(--bg); outline: none;
+  }
+  #new-pl-input:focus { border-color: var(--primary); }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--primary-dark); color: #fff;
+    padding: 10px 22px; border-radius: 20px; font-size: .875rem;
+    opacity: 0; transition: opacity .2s, transform .2s; z-index: 900;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── CONFIRM MODAL ── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    z-index: 800; display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .overlay.open { opacity: 1; pointer-events: all; }
+  .dialog {
+    background: var(--surface); border-radius: var(--radius);
+    padding: 28px 28px 24px; max-width: 380px; width: 90%;
+    box-shadow: 0 8px 40px rgba(0,0,0,.2);
+    transform: scale(.95); transition: transform .2s;
+  }
+  .overlay.open .dialog { transform: scale(1); }
+  .dialog h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; }
+  .dialog p { font-size: .875rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px; }
+  .dialog-btns { display: flex; gap: 10px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+<div id="layout">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="sidebar-logo">Cord<span>a</span></div>
+    <div class="sidebar-nav">
+      <div class="nav-item active" data-panel="upload" onclick="switchPanel('upload', this)">
+        <span class="ni">📤</span> Upload
+      </div>
+      <div class="nav-item" data-panel="files" onclick="switchPanel('files', this)">
+        <span class="ni">📁</span> Arquivos
+      </div>
+      <div class="nav-item" data-panel="playlists" onclick="switchPanel('playlists', this)">
+        <span class="ni">🎵</span> Playlists
+      </div>
+      <div class="nav-item" data-panel="settings" onclick="switchPanel('settings', this)">
+        <span class="ni">⚙️</span> Configurações
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      Admin — nomaia/corda<br>
+      <a href="./index.html" target="_blank" style="color:var(--accent);text-decoration:none">↗ Abrir Corda</a>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+    <div id="topbar">
+      <h2 id="topbar-title">Upload de Cifras</h2>
+      <span id="pat-status" class="err">Sem PAT</span>
+      <button class="btn btn-ghost" onclick="switchPanel('settings', document.querySelector('[data-panel=settings]'))">
+        🔑 Configurar PAT
+      </button>
+    </div>
+
+    <div id="content">
+
+      <!-- ── UPLOAD PANEL ── -->
+      <div id="panel-upload" class="panel active">
+        <div class="card">
+          <div class="card-title">📤 Enviar PDFs <span class="tag">Requer PAT</span></div>
+          <div id="drop-zone">
+            <div class="dz-icon">🎵</div>
+            <p>Arraste arquivos PDF aqui<br>ou <strong onclick="document.getElementById('file-input').click()">clique para selecionar</strong></p>
+            <input type="file" id="file-input" accept=".pdf" multiple>
+          </div>
+          <div id="upload-queue"></div>
+          <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn btn-primary" id="btn-upload-all" onclick="uploadAll()" disabled>
+              ⬆ Enviar Todos
+            </button>
+            <button class="btn btn-ghost" onclick="clearQueue()">✕ Limpar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── FILES PANEL ── -->
+      <div id="panel-files" class="panel">
+        <div class="card">
+          <div class="card-title">
+            📁 Cifras no Repositório
+            <span class="tag" id="files-count">–</span>
+            <button class="btn btn-ghost" style="margin-left:auto" onclick="loadFiles()">⟳ Atualizar</button>
+          </div>
+          <div class="fm-toolbar">
+            <input class="fm-search" placeholder="Buscar..." oninput="filterFmFiles(this.value)">
+          </div>
+          <div style="overflow-x:auto">
+            <table class="files-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Tamanho</th>
+                  <th style="text-align:right">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="files-tbody">
+                <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:32px">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PLAYLISTS PANEL ── -->
+      <div id="panel-playlists" class="panel">
+        <div class="card">
+          <div class="card-title">🎵 Playlists <span class="tag" id="pl-count">–</span></div>
+          <div class="pl-grid">
+            <!-- Left: playlist list -->
+            <div>
+              <div class="pl-list" id="pl-list"></div>
+              <div class="new-pl-form" style="margin-top:12px">
+                <input id="new-pl-input" placeholder="Nova playlist..." maxlength="50">
+                <button class="btn btn-primary" onclick="createPlaylist()">+ Criar</button>
+              </div>
+            </div>
+            <!-- Right: playlist editor -->
+            <div id="pl-editor">
+              <div class="empty-state" style="padding:40px 0">
+                <div style="font-size:2rem;margin-bottom:8px">🎸</div>
+                <p style="font-size:.9rem;color:var(--text-muted)">Selecione uma playlist para editar</p>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:20px;display:flex;gap:10px">
+            <button class="btn btn-primary" onclick="savePlaylists()">💾 Salvar Playlists no GitHub</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SETTINGS PANEL ── -->
+      <div id="panel-settings" class="panel">
+        <div class="card">
+          <div class="card-title">🔑 Personal Access Token (PAT)</div>
+          <p style="font-size:.875rem;color:var(--text-muted);margin-bottom:16px;line-height:1.6">
+            O PAT é necessário para fazer upload de arquivos e salvar playlists no GitHub.
+            Ele fica salvo apenas neste navegador.
+          </p>
+          <div id="pat-form">
+            <input id="pat-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+            <button class="btn btn-primary" onclick="savePAT()">Salvar PAT</button>
+            <button class="btn btn-danger" onclick="clearPAT()">Remover</button>
+          </div>
+          <p class="pat-help">
+            Crie em <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens</a>
+            com permissão <strong>Contents → Read and write</strong> no repositório <code>nomaia/corda</code>.<br>
+            Nunca compartilhe seu PAT.
+          </p>
+        </div>
+        <div class="card">
+          <div class="card-title">ℹ️ Repositório</div>
+          <p style="font-size:.875rem;color:var(--text-muted);line-height:1.6">
+            <strong>Repo:</strong> <a href="https://github.com/nomaia/corda" target="_blank">github.com/nomaia/corda</a><br>
+            <strong>PDFs:</strong> <code>/pdfs/</code> (branch main)<br>
+            <strong>Playlists:</strong> <code>/playlists.json</code><br>
+            <strong>Viewer:</strong> <a href="./index.html" target="_blank">index.html</a>
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Confirm dialog -->
+<div class="overlay" id="confirm-overlay">
+  <div class="dialog">
+    <h3 id="confirm-title">Confirmar</h3>
+    <p id="confirm-msg"></p>
+    <div class="dialog-btns">
+      <button class="btn btn-ghost" onclick="closeConfirm()">Cancelar</button>
+      <button class="btn btn-danger" id="confirm-ok">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════
+   CONFIG
+══════════════════════════════════════════ */
+const GH_USER   = 'nomaia';
+const GH_REPO   = 'corda';
+const GH_BRANCH = 'main';
+const RAW_BASE  = `https://raw.githubusercontent.com/${GH_USER}/${GH_REPO}/${GH_BRANCH}`;
+const API_BASE  = `https://api.github.com/repos/${GH_USER}/${GH_REPO}`;
+
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+let pat         = localStorage.getItem('corda_pat') || '';
+let allFiles    = [];   // {name, size, sha, download_url}
+let fmFiltered  = [];
+let playlists   = {};
+let selectedPL  = null;
+let uploadQueue = [];   // [{file, status, progress}]
+
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', async () => {
+  updatePATStatus();
+  if (pat) {
+    document.getElementById('pat-input').value = pat;
+  }
+  await Promise.all([loadFiles(), loadPlaylists()]);
+  setupDropZone();
+});
+
+/* ══════════════════════════════════════════
+   PAT
+══════════════════════════════════════════ */
+function savePAT() {
+  const val = document.getElementById('pat-input').value.trim();
+  if (!val) { toast('Digite um PAT válido'); return; }
+  pat = val;
+  localStorage.setItem('corda_pat', pat);
+  updatePATStatus();
+  toast('PAT salvo!');
+}
+
+function clearPAT() {
+  pat = '';
+  localStorage.removeItem('corda_pat');
+  document.getElementById('pat-input').value = '';
+  updatePATStatus();
+  toast('PAT removido');
+}
+
+function updatePATStatus() {
+  const el = document.getElementById('pat-status');
+  if (pat) {
+    el.textContent = '✓ PAT configurado';
+    el.className = 'ok';
+    document.getElementById('btn-upload-all').disabled = uploadQueue.length === 0;
+  } else {
+    el.textContent = 'Sem PAT';
+    el.className = 'err';
+    document.getElementById('btn-upload-all').disabled = true;
+  }
+}
+
+/* ══════════════════════════════════════════
+   PANELS
+══════════════════════════════════════════ */
+const panelTitles = {
+  upload: 'Upload de Cifras',
+  files: 'Arquivos no Repositório',
+  playlists: 'Gerenciar Playlists',
+  settings: 'Configurações'
+};
+
+function switchPanel(name, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`panel-${name}`).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('topbar-title').textContent = panelTitles[name] || name;
+}
+
+/* ══════════════════════════════════════════
+   LOAD FILES
+══════════════════════════════════════════ */
+async function loadFiles() {
+  try {
+    const headers = { Accept: 'application/vnd.github+json' };
+    if (pat) headers['Authorization'] = `Bearer ${pat}`;
+    const res = await fetch(`${API_BASE}/contents/pdfs`, { headers });
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    allFiles = data
+      .filter(f => f.name.toLowerCase().endsWith('.pdf'))
+      .map(f => ({ name: f.name, size: f.size, sha: f.sha, download_url: f.download_url }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt'));
+    fmFiltered = [...allFiles];
+    renderFilesTable();
+    renderPLEditor();
+  } catch (e) {
+    console.error('loadFiles', e);
+    document.getElementById('files-tbody').innerHTML =
+      `<tr><td colspan="3" style="text-align:center;color:var(--danger);padding:24px">Erro ao carregar: ${e.message}</td></tr>`;
+  }
+}
+
+function renderFilesTable() {
+  const count = fmFiltered.length;
+  document.getElementById('files-count').textContent = `${count} arquivo${count !== 1 ? 's' : ''}`;
+  const tbody = document.getElementById('files-tbody');
+  if (!count) {
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:32px">Nenhum PDF encontrado</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = fmFiltered.map(f => {
+    const kb = Math.round(f.size / 1024);
+    return `<tr>
+      <td><div class="ft-name" title="${escHtml(f.name)}">🎵 ${escHtml(f.name.replace(/\.pdf$/i,''))}</div></td>
+      <td class="ft-size">${kb} KB</td>
+      <td>
+        <div class="ft-actions">
+          <a href="${f.download_url}" target="_blank"><button class="icon-btn" title="Visualizar">👁</button></a>
+          <button class="icon-btn del" title="Excluir" onclick="confirmDelete('${escAttr(f.name)}', '${f.sha}')">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterFmFiles(q) {
+  const lq = q.toLowerCase().trim();
+  fmFiltered = lq ? allFiles.filter(f => f.name.toLowerCase().includes(lq)) : [...allFiles];
+  renderFilesTable();
+}
+
+/* ══════════════════════════════════════════
+   DELETE FILE
+══════════════════════════════════════════ */
+function confirmDelete(name, sha) {
+  confirm2(`Excluir "${name}"?`, `Esta ação não pode ser desfeita. O arquivo será removido do repositório.`,
+    () => deleteFile(name, sha));
+}
+
+async function deleteFile(name, sha) {
+  if (!pat) { toast('Configure o PAT primeiro'); return; }
+  try {
+    const res = await fetch(`${API_BASE}/contents/pdfs/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${pat}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/vnd.github+json'
+      },
+      body: JSON.stringify({
+        message: `Delete: ${name}`,
+        sha,
+        branch: GH_BRANCH
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || res.status);
+    }
+    toast(`"${name}" excluído`);
+    await loadFiles();
+  } catch (e) {
+    toast(`Erro: ${e.message}`);
+  }
+}
+
+/* ══════════════════════════════════════════
+   UPLOAD
+══════════════════════════════════════════ */
+function setupDropZone() {
+  const dz = document.getElementById('drop-zone');
+  const fi = document.getElementById('file-input');
+
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    addToQueue([...e.dataTransfer.files]);
+  });
+  fi.addEventListener('change', () => {
+    addToQueue([...fi.files]);
+    fi.value = '';
+  });
+}
+
+function addToQueue(files) {
+  const pdfs = files.filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+  if (!pdfs.length) { toast('Selecione apenas arquivos PDF'); return; }
+  pdfs.forEach(f => {
+    if (!uploadQueue.find(q => q.file.name === f.name)) {
+      uploadQueue.push({ file: f, status: 'pending', progress: 0 });
+    }
+  });
+  renderQueue();
+  if (pat) document.getElementById('btn-upload-all').disabled = false;
+}
+
+function renderQueue() {
+  const container = document.getElementById('upload-queue');
+  if (!uploadQueue.length) { container.innerHTML = ''; return; }
+  container.innerHTML = uploadQueue.map((item, i) => {
+    const kb = Math.round(item.file.size / 1024);
+    const icon = item.status === 'done' ? '✅' : item.status === 'error' ? '❌' : item.status === 'uploading' ? '⏳' : '📄';
+    return `<div class="queue-item">
+      <span style="font-size:1.2rem">${icon}</span>
+      <div style="flex:1;min-width:0">
+        <div class="queue-name">${escHtml(item.file.name)}</div>
+        ${item.status === 'uploading' ? `<div class="progress-bar"><div class="progress-fill" style="width:${item.progress}%"></div></div>` : ''}
+      </div>
+      <span class="queue-size">${kb} KB</span>
+      ${item.status !== 'uploading' ? `<button class="icon-btn" onclick="removeFromQueue(${i})">✕</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function removeFromQueue(i) {
+  uploadQueue.splice(i, 1);
+  renderQueue();
+  if (!uploadQueue.length) document.getElementById('btn-upload-all').disabled = true;
+}
+
+function clearQueue() {
+  uploadQueue = uploadQueue.filter(q => q.status !== 'done');
+  renderQueue();
+}
+
+async function uploadAll() {
+  if (!pat) { toast('Configure o PAT primeiro'); return; }
+  const pending = uploadQueue.filter(q => q.status === 'pending');
+  if (!pending.length) { toast('Nada para enviar'); return; }
+  document.getElementById('btn-upload-all').disabled = true;
+
+  for (const item of pending) {
+    item.status = 'uploading';
+    item.progress = 10;
+    renderQueue();
+    try {
+      const content = await fileToBase64(item.file);
+      item.progress = 40;
+      renderQueue();
+
+      // Check if file already exists (to get SHA for update)
+      let sha = undefined;
+      const checkRes = await fetch(`${API_BASE}/contents/pdfs/${encodeURIComponent(item.file.name)}`, {
+        headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github+json' }
+      });
+      if (checkRes.ok) {
+        const existing = await checkRes.json();
+        sha = existing.sha;
+      }
+
+      item.progress = 60;
+      renderQueue();
+
+      const body = {
+        message: sha ? `Update: ${item.file.name}` : `Add: ${item.file.name}`,
+        content,
+        branch: GH_BRANCH
+      };
+      if (sha) body.sha = sha;
+
+      const res = await fetch(`${API_BASE}/contents/pdfs/${encodeURIComponent(item.file.name)}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${pat}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/vnd.github+json'
+        },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || res.status);
+      }
+      item.status = 'done';
+      item.progress = 100;
+    } catch (e) {
+      item.status = 'error';
+      console.error('upload error', e);
+      toast(`Erro: ${item.file.name} — ${e.message}`);
+    }
+    renderQueue();
+  }
+
+  toast('Upload concluído!');
+  await loadFiles();
+  document.getElementById('btn-upload-all').disabled =
+    uploadQueue.filter(q => q.status === 'pending').length === 0;
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      // Strip data URL prefix
+      const b64 = e.target.result.split(',')[1];
+      resolve(b64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ══════════════════════════════════════════
+   PLAYLISTS
+══════════════════════════════════════════ */
+async function loadPlaylists() {
+  try {
+    const res = await fetch(`${RAW_BASE}/playlists.json?t=${Date.now()}`);
+    if (!res.ok) throw new Error(res.status);
+    playlists = await res.json();
+  } catch {
+    playlists = {};
+  }
+  renderPLList();
+  renderPLEditor();
+}
+
+function renderPLList() {
+  const keys = Object.keys(playlists);
+  document.getElementById('pl-count').textContent = `${keys.length} playlist${keys.length !== 1 ? 's' : ''}`;
+  const list = document.getElementById('pl-list');
+  if (!keys.length) {
+    list.innerHTML = `<div style="padding:12px;color:var(--text-muted);font-size:.875rem">Nenhuma playlist ainda.</div>`;
+    return;
+  }
+  list.innerHTML = keys.map(pl => {
+    const cnt = (playlists[pl] || []).length;
+    return `<div class="pl-item ${pl === selectedPL ? 'selected' : ''}" onclick="selectPL('${escAttr(pl)}')">
+      <span style="font-size:1.1rem">🎸</span>
+      <span class="pl-item-name">${escHtml(pl)}</span>
+      <span class="pl-item-count">${cnt}</span>
+      <button class="pl-item-del" title="Excluir" onclick="deletePL('${escAttr(pl)}', event)">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function renderPLEditor() {
+  const editor = document.getElementById('pl-editor');
+  if (!selectedPL || !playlists[selectedPL]) {
+    editor.innerHTML = `<div class="empty-state" style="padding:40px 0">
+      <div style="font-size:2rem;margin-bottom:8px">🎸</div>
+      <p style="font-size:.9rem;color:var(--text-muted)">Selecione uma playlist para editar</p>
+    </div>`;
+    return;
+  }
+
+  const pl = playlists[selectedPL];
+  // All files, checked = in playlist
+  const allNames = allFiles.map(f => f.name);
+  // Files in playlist that might not be in repo (keep them in list grayed)
+  const missing = pl.filter(f => !allNames.includes(f));
+  const allForPL = [...allNames, ...missing];
+
+  editor.innerHTML = `<div class="pl-editor-title">Editando: <span class="pl-editor-name">${escHtml(selectedPL)}</span></div>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px">${pl.length} cifra${pl.length !== 1 ? 's' : ''} na playlist</p>
+    <div class="pl-pdf-grid" id="pl-pdf-grid">
+    ${pl.length === 0 && allForPL.length === 0
+      ? `<p style="color:var(--text-muted);font-size:.875rem">Nenhum arquivo no repositório.</p>`
+      : allForPL.map((name, idx) => {
+          const inPL = pl.includes(name);
+          const plIdx = pl.indexOf(name);
+          return `<div class="pl-pdf-row">
+            <input type="checkbox" ${inPL ? 'checked' : ''} onchange="togglePLFile('${escAttr(name)}', this.checked)">
+            <span class="pl-pdf-name">${escHtml(name.replace(/\.pdf$/i,''))}</span>
+            ${inPL ? `<div class="move-btns">
+              <button class="move-btn" ${plIdx === 0 ? 'disabled' : ''} onclick="movePLFile('${escAttr(name)}', -1)" title="Subir">↑</button>
+              <button class="move-btn" ${plIdx === pl.length - 1 ? 'disabled' : ''} onclick="movePLFile('${escAttr(name)}', 1)" title="Descer">↓</button>
+            </div>` : ''}
+          </div>`;
+        }).join('')
+    }
+    </div>`;
+}
+
+function selectPL(pl) {
+  selectedPL = pl;
+  renderPLList();
+  renderPLEditor();
+}
+
+function createPlaylist() {
+  const input = document.getElementById('new-pl-input');
+  const name = input.value.trim();
+  if (!name) { toast('Digite um nome'); return; }
+  if (playlists[name]) { toast('Playlist já existe'); return; }
+  playlists[name] = [];
+  input.value = '';
+  selectedPL = name;
+  renderPLList();
+  renderPLEditor();
+}
+
+function deletePL(pl, event) {
+  event.stopPropagation();
+  confirm2(`Excluir playlist "${pl}"?`,
+    'Isso remove a playlist da lista. Os arquivos PDF não são afetados.',
+    () => {
+      delete playlists[pl];
+      if (selectedPL === pl) selectedPL = null;
+      renderPLList();
+      renderPLEditor();
+    });
+}
+
+function togglePLFile(name, checked) {
+  if (!selectedPL) return;
+  const arr = playlists[selectedPL] || [];
+  if (checked && !arr.includes(name)) {
+    arr.push(name);
+  } else if (!checked) {
+    const i = arr.indexOf(name);
+    if (i >= 0) arr.splice(i, 1);
+  }
+  playlists[selectedPL] = arr;
+  renderPLEditor();
+}
+
+function movePLFile(name, delta) {
+  if (!selectedPL) return;
+  const arr = playlists[selectedPL];
+  const i = arr.indexOf(name);
+  if (i < 0) return;
+  const j = i + delta;
+  if (j < 0 || j >= arr.length) return;
+  [arr[i], arr[j]] = [arr[j], arr[i]];
+  playlists[selectedPL] = arr;
+  renderPLEditor();
+}
+
+async function savePlaylists() {
+  if (!pat) { toast('Configure o PAT primeiro'); return; }
+  try {
+    // Get current SHA of playlists.json
+    let sha = undefined;
+    const checkRes = await fetch(`${API_BASE}/contents/playlists.json`, {
+      headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github+json' }
+    });
+    if (checkRes.ok) {
+      const data = await checkRes.json();
+      sha = data.sha;
+    }
+
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(playlists, null, 2))));
+    const body = {
+      message: 'Update playlists.json',
+      content,
+      branch: GH_BRANCH
+    };
+    if (sha) body.sha = sha;
+
+    const res = await fetch(`${API_BASE}/contents/playlists.json`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${pat}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/vnd.github+json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || res.status);
+    }
+    toast('✅ Playlists salvas no GitHub!');
+  } catch (e) {
+    toast(`Erro ao salvar: ${e.message}`);
+  }
+}
+
+/* ══════════════════════════════════════════
+   CONFIRM DIALOG
+══════════════════════════════════════════ */
+let confirmCallback = null;
+
+function confirm2(title, msg, callback) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg;
+  confirmCallback = callback;
+  document.getElementById('confirm-overlay').classList.add('open');
+  document.getElementById('confirm-ok').onclick = () => {
+    closeConfirm();
+    if (confirmCallback) confirmCallback();
+  };
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  confirmCallback = null;
+}
+
+/* ══════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════ */
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return String(s).replace(/'/g,"\\'");
+}
+</script>
+</body>
+</html>

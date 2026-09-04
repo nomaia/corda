@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#5C2B8C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Corda">
+<title>Corda</title>
+<link rel="manifest" href="./manifest.json">
+<style>
+  :root {
+    --primary:      #5C2B8C;
+    --primary-dark: #3D1570;
+    --primary-light:#7B4DB8;
+    --accent:       #D4A843;
+    --bg:           #F9F7FC;
+    --surface:      #FFFFFF;
+    --text:         #1C1426;
+    --text-muted:   #7B6B8C;
+    --border:       #E8E0F0;
+    --radius:       12px;
+    --shadow:       0 2px 12px rgba(92,43,140,.12);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+  /* ── HEADER ── */
+  header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: var(--primary);
+    display: flex; align-items: center; gap: 10px;
+    padding: env(safe-area-inset-top, 0) 16px 0;
+    height: calc(56px + env(safe-area-inset-top, 0));
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+  header h1 { color: #fff; font-size: 1.3rem; font-weight: 700; letter-spacing: .03em; flex: 1; }
+  .header-btn {
+    background: none; border: none; cursor: pointer;
+    color: #fff; font-size: 1.4rem; padding: 6px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  .header-btn:active { background: rgba(255,255,255,.2); }
+
+  /* ── MAIN LAYOUT ── */
+  #app {
+    padding-top: calc(56px + env(safe-area-inset-top, 0));
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0));
+    min-height: 100%;
+  }
+
+  /* ── BOTTOM NAV ── */
+  nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    box-shadow: 0 -2px 12px rgba(92,43,140,.08);
+  }
+  .nav-btn {
+    flex: 1; border: none; background: none; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 8px 0; gap: 3px; color: var(--text-muted);
+    font-size: .65rem; font-weight: 500; letter-spacing: .04em;
+    transition: color .15s;
+  }
+  .nav-btn .icon { font-size: 1.4rem; }
+  .nav-btn.active { color: var(--primary); }
+
+  /* ── SCREENS ── */
+  .screen { display: none; padding: 16px; }
+  .screen.active { display: block; }
+
+  /* ── LIBRARY SCREEN ── */
+  #search-bar {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius); padding: 10px 14px; margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+  #search-input {
+    flex: 1; border: none; outline: none; font-size: 1rem;
+    color: var(--text); background: transparent;
+  }
+  #search-input::placeholder { color: var(--text-muted); }
+
+  .section-title {
+    font-size: .75rem; font-weight: 700; color: var(--text-muted);
+    letter-spacing: .08em; text-transform: uppercase;
+    margin: 20px 0 10px;
+  }
+
+  .file-list { display: flex; flex-direction: column; gap: 8px; }
+  .file-card {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer; box-shadow: var(--shadow);
+    transition: border-color .15s, transform .1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .file-card:active { transform: scale(.98); border-color: var(--primary-light); }
+  .file-icon { font-size: 1.6rem; flex-shrink: 0; }
+  .file-info { flex: 1; min-width: 0; }
+  .file-name {
+    font-size: .95rem; font-weight: 600; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .file-meta { font-size: .75rem; color: var(--text-muted); margin-top: 2px; }
+  .file-add { font-size: 1.2rem; color: var(--text-muted); flex-shrink: 0; }
+
+  /* ── PLAYLISTS SCREEN ── */
+  .playlist-list { display: flex; flex-direction: column; gap: 8px; }
+  .playlist-card {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius); padding: 16px;
+    cursor: pointer; box-shadow: var(--shadow);
+    transition: border-color .15s;
+  }
+  .playlist-card:active { border-color: var(--primary-light); }
+  .playlist-card-header { display: flex; align-items: center; gap: 10px; }
+  .playlist-icon { font-size: 1.8rem; }
+  .playlist-name { font-size: 1rem; font-weight: 700; color: var(--text); }
+  .playlist-count { font-size: .75rem; color: var(--text-muted); margin-top: 2px; }
+  .playlist-preview {
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--border);
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .preview-chip {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 20px; padding: 3px 10px;
+    font-size: .7rem; color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 140px;
+  }
+  .empty-state {
+    text-align: center; padding: 48px 24px; color: var(--text-muted);
+  }
+  .empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+  .empty-state p { font-size: .9rem; line-height: 1.5; }
+
+  /* ── PLAYLIST DETAIL ── */
+  #back-btn { display: none; }
+
+  /* ── READER ── */
+  #reader-screen {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: #1C1426; z-index: 200; display: none;
+    flex-direction: column;
+  }
+  #reader-screen.open { display: flex; }
+  #reader-header {
+    background: var(--primary-dark);
+    padding: env(safe-area-inset-top, 8px) 12px 8px;
+    padding-top: max(env(safe-area-inset-top, 8px), 8px);
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  }
+  #reader-title {
+    flex: 1; color: #fff; font-size: .9rem; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #reader-close {
+    background: none; border: none; cursor: pointer;
+    color: #fff; font-size: 1.5rem; line-height: 1;
+    padding: 4px 8px; border-radius: 8px;
+  }
+  #reader-close:active { background: rgba(255,255,255,.15); }
+  #pdf-container {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 8px 4px; display: flex; flex-direction: column; align-items: center;
+    gap: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  #pdf-container canvas {
+    max-width: 100%; display: block;
+    border-radius: 4px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.5);
+  }
+  #reader-loader {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    color: #fff; font-size: .9rem; text-align: center;
+  }
+  .spinner {
+    width: 36px; height: 36px; border: 3px solid rgba(255,255,255,.2);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .8s linear infinite; margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── READER CONTROLS ── */
+  #reader-controls {
+    background: var(--primary-dark);
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+    padding: 8px 16px;
+    padding-bottom: max(env(safe-area-inset-bottom, 8px), 8px);
+    flex-shrink: 0;
+  }
+  .ctrl-btn {
+    background: rgba(255,255,255,.1); border: none; cursor: pointer;
+    color: #fff; font-size: 1.1rem; padding: 8px 16px; border-radius: 8px;
+    transition: background .15s;
+  }
+  .ctrl-btn:active { background: rgba(255,255,255,.25); }
+  .ctrl-btn:disabled { opacity: .35; cursor: default; }
+  #page-info { color: rgba(255,255,255,.7); font-size: .85rem; min-width: 80px; text-align: center; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    z-index: 300; display: flex; align-items: flex-end; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal-sheet {
+    background: var(--surface); border-radius: 20px 20px 0 0;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0));
+    width: 100%; max-width: 560px; max-height: 70vh; overflow-y: auto;
+    transform: translateY(100%); transition: transform .25s cubic-bezier(.4,0,.2,1);
+  }
+  .modal-overlay.open .modal-sheet { transform: translateY(0); }
+  .modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; color: var(--text); }
+  .modal-pl-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--border); cursor: pointer;
+  }
+  .modal-pl-item:last-child { border-bottom: none; }
+  .modal-pl-item:active { opacity: .7; }
+  .modal-pl-name { flex: 1; font-size: .95rem; color: var(--text); }
+  .modal-check { font-size: 1.2rem; color: var(--primary); }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: calc(70px + env(safe-area-inset-bottom, 0)); left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--primary-dark); color: #fff;
+    padding: 10px 20px; border-radius: 20px; font-size: .85rem;
+    opacity: 0; transition: opacity .2s, transform .2s; z-index: 500;
+    white-space: nowrap; pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── LOADING ── */
+  #init-loader {
+    position: fixed; inset: 0; background: var(--primary);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 600; transition: opacity .4s;
+  }
+  #init-loader.gone { opacity: 0; pointer-events: none; }
+  #init-loader h2 { color: #fff; font-size: 2rem; font-weight: 800; margin-bottom: 8px; }
+  #init-loader p { color: rgba(255,255,255,.7); font-size: .9rem; }
+  #init-loader .spinner { border-top-color: var(--accent); margin-top: 32px; }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #120B1C;
+      --surface: #1E1230;
+      --text: #F0EBF8;
+      --text-muted: #9B8AB0;
+      --border: #2E1F48;
+      --shadow: 0 2px 12px rgba(0,0,0,.4);
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- Initial loader -->
+<div id="init-loader">
+  <h2>Corda</h2>
+  <p>Carregando cifras...</p>
+  <div class="spinner"></div>
+</div>
+
+<!-- Header -->
+<header>
+  <h1 id="header-title">Corda</h1>
+  <button class="header-btn" id="back-btn" onclick="closePlaylistDetail()" title="Voltar">←</button>
+  <button class="header-btn" onclick="refreshLibrary()" title="Atualizar">⟳</button>
+</header>
+
+<!-- Main app -->
+<div id="app">
+  <!-- Library screen -->
+  <div id="library-screen" class="screen active">
+    <div id="search-bar">
+      <span>🔍</span>
+      <input id="search-input" type="search" placeholder="Buscar cifra..." oninput="filterFiles()">
+    </div>
+    <div class="section-title">Todas as Cifras</div>
+    <div id="file-list" class="file-list">
+      <div class="empty-state">
+        <div class="empty-icon">🎸</div>
+        <p>Nenhuma cifra encontrada.<br>Use o painel admin para adicionar PDFs.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Playlists screen -->
+  <div id="playlists-screen" class="screen">
+    <div id="playlist-list-view">
+      <div class="section-title">Minhas Playlists</div>
+      <div id="playlist-list" class="playlist-list">
+        <div class="empty-state">
+          <div class="empty-icon">🎵</div>
+          <p>Nenhuma playlist ainda.<br>Use o painel admin para criar playlists.</p>
+        </div>
+      </div>
+    </div>
+    <div id="playlist-detail-view" style="display:none">
+      <div class="section-title" id="detail-title"></div>
+      <div id="detail-file-list" class="file-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom nav -->
+<nav>
+  <button class="nav-btn active" id="nav-library" onclick="showScreen('library')">
+    <span class="icon">📄</span>
+    <span>Biblioteca</span>
+  </button>
+  <button class="nav-btn" id="nav-playlists" onclick="showScreen('playlists')">
+    <span class="icon">🎵</span>
+    <span>Playlists</span>
+  </button>
+</nav>
+
+<!-- Reader -->
+<div id="reader-screen">
+  <div id="reader-header">
+    <button id="reader-close" onclick="closeReader()">✕</button>
+    <div id="reader-title">–</div>
+  </div>
+  <div id="pdf-container">
+    <div id="reader-loader"><div class="spinner"></div>Abrindo PDF...</div>
+  </div>
+  <div id="reader-controls">
+    <button class="ctrl-btn" id="btn-prev" onclick="changePage(-1)">◀ Anterior</button>
+    <span id="page-info">–</span>
+    <button class="ctrl-btn" id="btn-next" onclick="changePage(1)">Próxima ▶</button>
+  </div>
+</div>
+
+<!-- Add to playlist modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-title">Adicionar à Playlist</div>
+    <div id="modal-pl-list"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+/* ══════════════════════════════════════════
+   CONFIG
+══════════════════════════════════════════ */
+const GH_USER   = 'nomaia';
+const GH_REPO   = 'corda';
+const GH_BRANCH = 'main';
+const RAW_BASE  = `https://raw.githubusercontent.com/${GH_USER}/${GH_REPO}/${GH_BRANCH}`;
+const API_BASE  = `https://api.github.com/repos/${GH_USER}/${GH_REPO}`;
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+let allFiles     = [];    // [{name, download_url, size}]
+let filteredFiles = [];
+let playlists    = {};    // { "Violão": ["Garota.pdf", ...], ... }
+let modalTarget  = null;  // filename being added to playlist
+
+// Reader state
+let pdfDoc    = null;
+let curPage   = 1;
+let totalPage = 0;
+let rendering = false;
+
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+async function init() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+  await Promise.all([loadFiles(), loadPlaylists()]);
+  renderLibrary();
+  renderPlaylists();
+  document.getElementById('init-loader').classList.add('gone');
+}
+
+/* ══════════════════════════════════════════
+   DATA LOADING
+══════════════════════════════════════════ */
+async function loadFiles() {
+  try {
+    const res = await fetch(`${API_BASE}/contents/pdfs`, {
+      headers: { Accept: 'application/vnd.github+json' }
+    });
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    allFiles = data
+      .filter(f => f.name.toLowerCase().endsWith('.pdf'))
+      .map(f => ({ name: f.name, size: f.size }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt'));
+    filteredFiles = [...allFiles];
+  } catch (e) {
+    console.warn('loadFiles error', e);
+    allFiles = [];
+    filteredFiles = [];
+  }
+}
+
+async function loadPlaylists() {
+  try {
+    const res = await fetch(`${RAW_BASE}/playlists.json?t=${Date.now()}`);
+    if (!res.ok) throw new Error(res.status);
+    playlists = await res.json();
+  } catch (e) {
+    console.warn('loadPlaylists error', e);
+    playlists = {};
+  }
+}
+
+async function refreshLibrary() {
+  toast('Atualizando...');
+  await Promise.all([loadFiles(), loadPlaylists()]);
+  renderLibrary();
+  renderPlaylists();
+  toast('Atualizado!');
+}
+
+/* ══════════════════════════════════════════
+   RENDER — LIBRARY
+══════════════════════════════════════════ */
+function renderLibrary() {
+  const list = document.getElementById('file-list');
+  if (!filteredFiles.length) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">🎸</div>
+      <p>Nenhuma cifra encontrada.<br>Use o painel admin para adicionar PDFs.</p>
+    </div>`;
+    return;
+  }
+  list.innerHTML = filteredFiles.map(f => fileCard(f)).join('');
+}
+
+function fileCard(f) {
+  const kb = Math.round(f.size / 1024);
+  const safeName = escHtml(f.name);
+  return `<div class="file-card" onclick="openPDF('${escAttr(f.name)}')">
+    <span class="file-icon">🎵</span>
+    <div class="file-info">
+      <div class="file-name">${safeName.replace('.pdf','').replace('.PDF','')}</div>
+      <div class="file-meta">${kb} KB</div>
+    </div>
+    <span class="file-add" onclick="openModal('${escAttr(f.name)}', event)">＋</span>
+  </div>`;
+}
+
+function filterFiles() {
+  const q = document.getElementById('search-input').value.toLowerCase().trim();
+  filteredFiles = q
+    ? allFiles.filter(f => f.name.toLowerCase().includes(q))
+    : [...allFiles];
+  renderLibrary();
+}
+
+/* ══════════════════════════════════════════
+   RENDER — PLAYLISTS
+══════════════════════════════════════════ */
+function renderPlaylists() {
+  const list = document.getElementById('playlist-list');
+  const keys = Object.keys(playlists);
+  if (!keys.length) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">🎵</div>
+      <p>Nenhuma playlist ainda.<br>Use o painel admin para criar playlists.</p>
+    </div>`;
+    return;
+  }
+  list.innerHTML = keys.map(pl => {
+    const files = playlists[pl] || [];
+    const preview = files.slice(0, 4).map(f =>
+      `<span class="preview-chip">${escHtml(f.replace('.pdf','').replace('.PDF',''))}</span>`
+    ).join('');
+    return `<div class="playlist-card" onclick="openPlaylistDetail('${escAttr(pl)}')">
+      <div class="playlist-card-header">
+        <span class="playlist-icon">🎸</span>
+        <div>
+          <div class="playlist-name">${escHtml(pl)}</div>
+          <div class="playlist-count">${files.length} cifra${files.length !== 1 ? 's' : ''}</div>
+        </div>
+      </div>
+      ${files.length ? `<div class="playlist-preview">${preview}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════════
+   PLAYLIST DETAIL
+══════════════════════════════════════════ */
+function openPlaylistDetail(pl) {
+  document.getElementById('playlist-list-view').style.display  = 'none';
+  document.getElementById('playlist-detail-view').style.display = 'block';
+  document.getElementById('back-btn').style.display = 'flex';
+  document.getElementById('header-title').textContent = pl;
+  document.getElementById('detail-title').textContent = pl;
+
+  const files = playlists[pl] || [];
+  const detail = document.getElementById('detail-file-list');
+  if (!files.length) {
+    detail.innerHTML = `<div class="empty-state"><div class="empty-icon">📄</div><p>Playlist vazia.</p></div>`;
+    return;
+  }
+  detail.innerHTML = files.map(name => {
+    const f = allFiles.find(x => x.name === name) || { name, size: 0 };
+    return fileCard(f);
+  }).join('');
+}
+
+function closePlaylistDetail() {
+  document.getElementById('playlist-list-view').style.display  = 'block';
+  document.getElementById('playlist-detail-view').style.display = 'none';
+  document.getElementById('back-btn').style.display = 'none';
+  document.getElementById('header-title').textContent = 'Corda';
+}
+
+/* ══════════════════════════════════════════
+   SCREENS
+══════════════════════════════════════════ */
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`${name}-screen`).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`nav-${name}`).classList.add('active');
+  if (name !== 'playlists') closePlaylistDetail();
+  document.getElementById('header-title').textContent = 'Corda';
+  document.getElementById('back-btn').style.display = 'none';
+}
+
+/* ══════════════════════════════════════════
+   MODAL — ADD TO PLAYLIST
+══════════════════════════════════════════ */
+function openModal(filename, event) {
+  event.stopPropagation();
+  modalTarget = filename;
+  const keys = Object.keys(playlists);
+  const list = document.getElementById('modal-pl-list');
+
+  if (!keys.length) {
+    list.innerHTML = `<div class="empty-state" style="padding:24px 0">
+      <div class="empty-icon">🎵</div>
+      <p>Crie playlists no painel admin.</p>
+    </div>`;
+  } else {
+    list.innerHTML = keys.map(pl => {
+      const has = (playlists[pl] || []).includes(filename);
+      return `<div class="modal-pl-item" onclick="toggleInPlaylist('${escAttr(pl)}')">
+        <span style="font-size:1.4rem">🎸</span>
+        <span class="modal-pl-name">${escHtml(pl)}</span>
+        ${has ? '<span class="modal-check">✓</span>' : ''}
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(event) {
+  if (event && event.target !== document.getElementById('modal-overlay')) return;
+  document.getElementById('modal-overlay').classList.remove('open');
+  modalTarget = null;
+}
+
+function toggleInPlaylist(pl) {
+  if (!modalTarget) return;
+  const arr = playlists[pl] || [];
+  const idx = arr.indexOf(modalTarget);
+  if (idx >= 0) {
+    arr.splice(idx, 1);
+    toast(`Removido de "${pl}"`);
+  } else {
+    arr.push(modalTarget);
+    toast(`Adicionado a "${pl}"`);
+  }
+  playlists[pl] = arr;
+  // Note: edits in the viewer are local-only (no PAT). For persistence, use admin panel.
+  // Re-render modal
+  openModal(modalTarget, { stopPropagation: () => {} });
+  renderPlaylists();
+}
+
+/* ══════════════════════════════════════════
+   PDF READER
+══════════════════════════════════════════ */
+async function openPDF(filename) {
+  const url = `${RAW_BASE}/pdfs/${encodeURIComponent(filename)}`;
+  document.getElementById('reader-title').textContent =
+    filename.replace(/\.pdf$/i, '');
+  document.getElementById('reader-loader').style.display = 'block';
+  document.getElementById('pdf-container').innerHTML = '';
+  document.getElementById('pdf-container').appendChild(
+    document.getElementById('reader-loader')
+  );
+  document.getElementById('page-info').textContent = '–';
+  document.getElementById('btn-prev').disabled = true;
+  document.getElementById('btn-next').disabled = true;
+  document.getElementById('reader-screen').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  try {
+    pdfDoc = await pdfjsLib.getDocument({ url }).promise;
+    totalPage = pdfDoc.numPages;
+    curPage = 1;
+    await renderAllPages();
+  } catch (e) {
+    document.getElementById('reader-loader').innerHTML =
+      '<p style="color:#f88">Erro ao abrir o PDF.<br>Verifique sua conexão.</p>';
+  }
+}
+
+async function renderAllPages() {
+  const container = document.getElementById('pdf-container');
+  container.innerHTML = '';
+  document.getElementById('reader-loader').style.display = 'none';
+  document.getElementById('page-info').textContent = `${totalPage} página${totalPage !== 1 ? 's' : ''}`;
+  document.getElementById('btn-prev').style.display = 'none';
+  document.getElementById('btn-next').style.display = 'none';
+  // Hide page controls — all pages visible by scroll
+  document.getElementById('reader-controls').style.display = 'none';
+
+  const vw = container.clientWidth - 8;
+  for (let i = 1; i <= totalPage; i++) {
+    const page = await pdfDoc.getPage(i);
+    const viewport = page.getViewport({ scale: vw / page.getViewport({ scale: 1 }).width });
+    const canvas = document.createElement('canvas');
+    canvas.width  = viewport.width;
+    canvas.height = viewport.height;
+    container.appendChild(canvas);
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  }
+  document.getElementById('reader-controls').style.display = 'flex';
+  // Show page counter only
+  document.getElementById('page-info').textContent = `${totalPage} página${totalPage !== 1 ? 's' : ''}`;
+}
+
+function changePage(delta) {
+  // Not used in scroll mode, kept for potential single-page toggle
+  curPage = Math.max(1, Math.min(totalPage, curPage + delta));
+  renderPage(curPage);
+}
+
+async function renderPage(n) {
+  if (rendering || !pdfDoc) return;
+  rendering = true;
+  const container = document.getElementById('pdf-container');
+  container.innerHTML = '';
+  const page = await pdfDoc.getPage(n);
+  const vw = container.clientWidth - 8;
+  const viewport = page.getViewport({ scale: vw / page.getViewport({ scale: 1 }).width });
+  const canvas = document.createElement('canvas');
+  canvas.width  = viewport.width;
+  canvas.height = viewport.height;
+  container.appendChild(canvas);
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  document.getElementById('page-info').textContent = `${n} / ${totalPage}`;
+  document.getElementById('btn-prev').disabled = n <= 1;
+  document.getElementById('btn-next').disabled = n >= totalPage;
+  rendering = false;
+}
+
+function closeReader() {
+  document.getElementById('reader-screen').classList.remove('open');
+  document.body.style.overflow = '';
+  pdfDoc = null;
+}
+
+/* ══════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════ */
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return String(s).replace(/'/g, "\\'");
+}
+
+/* ══════════════════════════════════════════
+   START
+══════════════════════════════════════════ */
+init();
+</script>
+</body>
+</html>

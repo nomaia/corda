@@ -1,0 +1,17 @@
+{
+  "name": "Corda",
+  "short_name": "Corda",
+  "description": "Leitor de cifras em PDF",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#5C2B8C",
+  "background_color": "#5C2B8C",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%235C2B8C'/><text y='140' font-size='120' text-anchor='middle' x='96'>🎸</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}
