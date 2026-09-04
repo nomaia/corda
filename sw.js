@@ -1,4 +1,4 @@
-const CACHE = 'corda-v3';
+const CACHE = 'corda-v4';
 const STATIC = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
