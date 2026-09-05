@@ -856,6 +856,9 @@ function initBookmarkletReceiver() {
       if (m) key = m[1];
     }
 
+    // Last resort: detect key from music theory (chord analysis)
+    if (!key) key = detectKeyFromBlocks(blocks) || '';
+
     const setF = (id, v) => {
       if (!v) return;
       const el = document.getElementById(id);
@@ -928,6 +931,117 @@ function parseCifraClubUrl(url) {
       title:  slugToTitle(songSlug),
     };
   } catch(e) { return null; }
+}
+
+// ══════════════════════════════════════════════════════════
+// KEY DETECTION — teoria musical / harmonia
+// ══════════════════════════════════════════════════════════
+
+// Cromática em sustenidos
+const _CHROM  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+// Versão com bemóis para display
+const _CHROM_B= ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+
+// Equivalências enarmônicas → índice cromático
+const _ENHARM = { Db:1,Eb:3,Fb:4,Gb:6,Ab:8,Bb:10,Cb:11,'E#':5,'B#':0 };
+
+function _noteIdx(note) {
+  if (_ENHARM[note] !== undefined) return _ENHARM[note];
+  const i = _CHROM.indexOf(note);
+  return i >= 0 ? i : -1;
+}
+
+// Extrai a nota fundamental do acorde: "F#m7" → "F#", "Bbmaj7" → "Bb"
+function _rootOf(chord) {
+  const m = chord.match(/^([A-G][b#]?)/);
+  return m ? m[1] : null;
+}
+
+// Verifica se o acorde tem qualidade menor
+function _isMinor(chord) {
+  const root = _rootOf(chord);
+  if (!root) return false;
+  const rest = chord.slice(root.length);
+  return /^(m(?!aj|M|\d*[Mm][Aa][Jj])|\bmin\b|dim|°)/.test(rest);
+}
+
+/**
+ * detectKeyFromBlocks(blocks) → string | null
+ *
+ * Analisa os acordes da cifra usando teoria musical:
+ * - Testa os 24 tons (12 maiores + 12 menores)
+ * - Pontua por acordes diatônicos vs. não-diatônicos
+ * - Bônus para a tônica e dominante como primeiro/último acorde
+ * - Escolhe sustenido ou bemól com base no vocabulário da própria cifra
+ */
+function detectKeyFromBlocks(blocks) {
+  // Intervalos da escala maior (W W H W W W H)
+  const MAJOR_INT = [0,2,4,5,7,9,11];
+  // Intervalos da escala menor natural
+  const MINOR_INT = [0,2,3,5,7,8,10];
+
+  // Frequência de cada raiz (índice 0-11)
+  const freq = new Array(12).fill(0);
+  // Primeiros e últimos acordes de cada linha de acorde (peso maior → tônica)
+  const tonicCandidates = [];
+
+  for (const blk of blocks) {
+    if (blk.type !== 'cl' || !blk.chords || !blk.chords.length) continue;
+    for (const ch of blk.chords) {
+      const root = _rootOf(ch.text);
+      if (!root) continue;
+      const idx = _noteIdx(root);
+      if (idx < 0) continue;
+      freq[idx]++;
+    }
+    // Primeiro e último acorde da linha como candidatos a tônica
+    const first = _rootOf(blk.chords[0].text);
+    const last  = _rootOf(blk.chords[blk.chords.length - 1].text);
+    if (first) { const i = _noteIdx(first); if (i >= 0) tonicCandidates.push(i); }
+    if (last)  { const i = _noteIdx(last);  if (i >= 0) tonicCandidates.push(i); }
+  }
+
+  const totalChords = freq.reduce((a, b) => a + b, 0);
+  if (totalChords === 0) return null;
+
+  // Bônus de tônica: contagem de aparições como primeiro/último acorde
+  const tonicBonus = new Array(12).fill(0);
+  for (const i of tonicCandidates) tonicBonus[i]++;
+
+  let bestScore = -Infinity, bestRoot = 0, bestMinor = false;
+
+  for (let minor = 0; minor < 2; minor++) {
+    const intervals = minor ? MINOR_INT : MAJOR_INT;
+    for (let root = 0; root < 12; root++) {
+      const diat = new Set(intervals.map(i => (root + i) % 12));
+      let score = 0;
+      for (let n = 0; n < 12; n++) {
+        if (freq[n] === 0) continue;
+        score += diat.has(n) ? freq[n] * 2 : -freq[n];
+      }
+      // Bônus se a tônica (grau I) aparece como primeiro/último
+      score += tonicBonus[root] * 4;
+      // Bônus para dominante (5º grau) — resolve na tônica
+      score += tonicBonus[(root + 7) % 12] * 1;
+
+      if (score > bestScore) {
+        bestScore = score; bestRoot = root; bestMinor = !!minor;
+      }
+    }
+  }
+
+  // Decide usar sustenidos ou bemóis com base na própria cifra
+  let sharps = 0, flats = 0;
+  for (const blk of blocks) {
+    if (blk.type !== 'cl' || !blk.chords) continue;
+    for (const ch of blk.chords) {
+      if (/#/.test(ch.text)) sharps++;
+      if (/b(?=[^a-z]|$)/.test(ch.text.slice(1))) flats++;
+    }
+  }
+  const useFlats = flats > sharps;
+  const noteName = (useFlats ? _CHROM_B : _CHROM)[bestRoot];
+  return noteName + (bestMinor ? 'm' : '');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1308,6 +1422,17 @@ function parseCifra() {
   if (!raw) { toast('Cole uma cifra antes de editar'); return; }
   blocks = parseCifraText(raw);
   if (!blocks.length) { toast('Não reconheci acordes na cifra'); return; }
+
+  // Auto-detecta tom se campo estiver vazio
+  const keyEl = document.getElementById('ps-key');
+  if (!keyEl.value.trim()) {
+    const detected = detectKeyFromBlocks(blocks);
+    if (detected) {
+      keyEl.value = detected;
+      document.getElementById('ed-key').value = detected;
+    }
+  }
+
   syncMeta('ps', 'ed');
   showEditor(); render(); reindex(); autoSave();
 }
@@ -1624,9 +1749,11 @@ function buildDocumentXml(title, artist, key, blks) {
   // Title
   body += `<w:p><w:pPr><w:spacing w:after="80"/></w:pPr><w:r>${rProps('Calibri',18,PURPLE,true)}<w:t>${xmlEsc(title)}</w:t></w:r></w:p>`;
 
-  // Artist/key with bottom border
-  let meta = artist; if (key) meta += (meta ? '   Tom: ' : 'Tom: ') + key;
-  body += `<w:p><w:pPr><w:spacing w:after="120"/><w:pBdr><w:bottom w:val="single" w:sz="8" w:space="4" w:color="${PURPLE}"/></w:pBdr></w:pPr><w:r>${rProps('Calibri',9,GRAY,false)}<w:t>${xmlEsc(meta)}</w:t></w:r></w:p>`;
+  // Artist line + key badge with bottom border
+  body += `<w:p><w:pPr><w:spacing w:after="120"/><w:pBdr><w:bottom w:val="single" w:sz="8" w:space="4" w:color="${PURPLE}"/></w:pBdr></w:pPr>`;
+  if (artist) body += `<w:r>${rProps('Calibri',9,GRAY,false)}<w:t xml:space="preserve">${xmlEsc(artist)}</w:t></w:r>`;
+  if (key)    body += `<w:r>${rProps('Calibri',9,GOLD,true)}<w:t xml:space="preserve">${artist ? '   ▸ Tom: ' : 'Tom: '}${xmlEsc(key)}</w:t></w:r>`;
+  body += `</w:p>`;
 
   for (const block of blks) {
     if (block.type === 'section') {
