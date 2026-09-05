@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Corda — Editor</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
   <style>
     :root {
       --purple:      #5C2B8C;
@@ -682,6 +684,7 @@ Because a vision softly creeping"></textarea>
     <div class="hd-actions">
       <button class="btn-ghost btn-sm" onclick="addSectionBlock()">+ Seção</button>
       <button class="btn-ghost btn-sm" onclick="addCLBlock()">+ Linha</button>
+      <button class="btn-ghost btn-sm" id="docx-btn" onclick="generateDOCX()">📄 DOCX</button>
       <button class="btn-gold  btn-sm" onclick="printPDF()">🖨 PDF</button>
     </div>
   </div>
@@ -694,7 +697,8 @@ Because a vision softly creeping"></textarea>
       <span>A</span>
     </div>
     <div class="tb-sep"></div>
-    <button class="btn-ghost btn-sm" onclick="autoSave(); toast('Rascunho salvo ✓')">💾 Salvar</button>
+    <button class="btn-ghost btn-sm" onclick="autoSave(); toast('Rascunho salvo ✓')">💾 Rascunho</button>
+    <button class="btn-gold  btn-sm" id="pub-btn" onclick="publishToGitHub()">☁ Publicar</button>
     <div style="flex:1"></div>
     <span style="font-size:.72rem;color:var(--text-dim)">
       Clique no acorde para editar · Clique na linha vazia para adicionar
@@ -1314,6 +1318,310 @@ function setCaretOffset(el, offset) {
   if (!found) { range.selectNodeContents(el); range.collapse(false); }
   sel.removeAllRanges();
   sel.addRange(range);
+}
+
+// ══════════════════════════════════════════════════════════
+// PDF GENERATION (jsPDF)
+// ══════════════════════════════════════════════════════════
+function slugify(str) {
+  return str
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s\-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '').slice(0, 80);
+}
+
+function arrayBufferToBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  let b = '';
+  for (let i = 0; i < bytes.byteLength; i++) b += String.fromCharCode(bytes[i]);
+  return btoa(b);
+}
+
+function generatePDFBytes() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const title  = document.getElementById('ed-title').value  || 'Sem título';
+  const artist = document.getElementById('ed-artist').value || '';
+  const key    = document.getElementById('ed-key').value    || '';
+
+  const mL = 14, mR = 14, mT = 14;
+  const pageW = 210, pageH = 297, maxY = pageH - 14;
+  let y = mT;
+
+  // ── Header ──────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(92, 43, 140);
+  doc.text(title, mL, y);
+  y += 6;
+
+  if (artist || key) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(90, 90, 90);
+    let meta = artist;
+    if (key) meta += (meta ? '   Tom: ' : 'Tom: ') + key;
+    doc.text(meta, mL, y);
+    y += 4;
+  }
+
+  doc.setDrawColor(92, 43, 140);
+  doc.setLineWidth(0.4);
+  doc.line(mL, y, pageW - mR, y);
+  y += 5;
+
+  // ── Chord width (Courier 9pt, 60% of em) ────────────────
+  const cFsz = 9;  // chord font size pt
+  const lFsz = 9;  // lyric font size pt
+  // 1 ch in mm = cFsz * 0.6 * (25.4/72)
+  const chMM = cFsz * 0.6 * (25.4 / 72);   // ≈ 1.905 mm per char
+
+  const rowChord   = 4.5;   // mm: height of chord row
+  const rowLyric   = 5.0;   // mm: height of lyric row
+  const rowSection = 6.0;
+  const gap        = 0.8;   // mm between blocks
+
+  function newPageIfNeeded(need) {
+    if (y + need > maxY) { doc.addPage(); y = mT; }
+  }
+
+  for (const block of blocks) {
+    if (block.type === 'section') {
+      newPageIfNeeded(rowSection);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(92, 43, 140);
+      doc.text((block.text || '').replace(/^\[|\]$/g, '').toUpperCase(), mL, y);
+      // thin rule above section
+      doc.setDrawColor(220, 180, 80);
+      doc.setLineWidth(0.2);
+      doc.line(mL, y - 3, pageW - mR, y - 3);
+      y += rowSection;
+      continue;
+    }
+
+    // CL block
+    const hasChords = block.chords && block.chords.length > 0;
+    const hasLyrics = block.lyrics && block.lyrics.trim();
+    const need = (hasChords ? rowChord : 0) + (hasLyrics ? rowLyric : rowLyric * 0.5) + gap;
+    newPageIfNeeded(need);
+
+    if (hasChords) {
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(cFsz);
+      doc.setTextColor(160, 110, 10);
+      for (const ch of block.chords) {
+        doc.text(ch.text, mL + ch.pos * chMM, y);
+      }
+      y += rowChord;
+    }
+
+    if (block.lyrics !== undefined) {
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(lFsz);
+      doc.setTextColor(30, 30, 30);
+      // truncate line so it doesn't overflow page width
+      const maxCh = Math.floor((pageW - mL - mR) / chMM);
+      const line   = (block.lyrics || '').slice(0, maxCh);
+      doc.text(line, mL, y);
+    }
+    y += rowLyric + gap;
+  }
+
+  return doc.output('arraybuffer');
+}
+
+// ══════════════════════════════════════════════════════════
+// PUBLISH TO GITHUB
+// ══════════════════════════════════════════════════════════
+async function publishToGitHub() {
+  const pat = localStorage.getItem('corda_pat');
+  if (!pat) {
+    toast('⚠️ Configure o PAT no Admin primeiro');
+    return;
+  }
+
+  const title  = document.getElementById('ed-title').value.trim();
+  const artist = document.getElementById('ed-artist').value.trim();
+
+  if (!title) { toast('⚠️ Informe o título antes de publicar'); return; }
+  if (!blocks.length) { toast('⚠️ Cifra vazia'); return; }
+
+  const btn = document.getElementById('pub-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Publicando…';
+
+  try {
+    const parts = [slugify(title)];
+    if (artist) parts.push(slugify(artist));
+    const filename = parts.join(' - ') + '.pdf';
+
+    // Generate PDF
+    const pdfBuf = generatePDFBytes();
+    const b64    = arrayBufferToBase64(pdfBuf);
+
+    const GH_USER   = 'nomaia';
+    const GH_REPO   = 'corda';
+    const GH_BRANCH = 'master';
+    const API       = `https://api.github.com/repos/${GH_USER}/${GH_REPO}`;
+    const path      = `pdfs/${encodeURIComponent(filename)}`;
+    const headers   = { Authorization: `token ${pat}`, 'Content-Type': 'application/json' };
+
+    // Check if file exists (need SHA for update)
+    let sha;
+    const chk = await fetch(`${API}/contents/${path}`, { headers });
+    if (chk.ok) { sha = (await chk.json()).sha; }
+
+    const body = { message: `cifra: ${title}`, content: b64, branch: GH_BRANCH };
+    if (sha) body.sha = sha;
+
+    const res = await fetch(`${API}/contents/${path}`, {
+      method: 'PUT', headers, body: JSON.stringify(body)
+    });
+
+    if (res.ok) {
+      toast('✓ Publicado: ' + filename);
+      autoSave();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      toast('❌ Erro: ' + (err.message || res.status));
+    }
+  } catch (e) {
+    toast('❌ ' + (e.message || 'Erro ao publicar'));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '☁ Publicar';
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// DOCX GENERATION
+// ══════════════════════════════════════════════════════════
+
+/** Converts chord positions back to a spaced string, e.g. "  Bm7          G7" */
+function buildChordLineStr(chords) {
+  const sorted = [...chords].sort((a, b) => a.pos - b.pos);
+  let s = '';
+  for (const ch of sorted) {
+    while (s.length < ch.pos) s += ' ';
+    s += ch.text;
+  }
+  return s;
+}
+
+async function generateDOCX() {
+  if (!window.docx) { toast('❌ Biblioteca DOCX não carregada'); return; }
+
+  const title  = document.getElementById('ed-title').value.trim()  || 'Sem título';
+  const artist = document.getElementById('ed-artist').value.trim() || '';
+  const key    = document.getElementById('ed-key').value.trim()    || '';
+
+  if (!blocks.length) { toast('⚠️ Cifra vazia'); return; }
+
+  const btn = document.getElementById('docx-btn');
+  btn.disabled = true; btn.textContent = '⏳';
+
+  try {
+    const { Document, Packer, Paragraph, TextRun, BorderStyle } = window.docx;
+
+    const PURPLE   = '5C2B8C';
+    const GOLD     = 'A07010';
+    const GRAY     = '888888';
+    const BLACK    = '1A1A1A';
+    const MONO     = 'Courier New';
+    const SANS     = 'Calibri';
+
+    const paras = [];
+
+    // ── Title ──────────────────────────────────────────────
+    paras.push(new Paragraph({
+      children: [new TextRun({ text: title, bold: true, size: 36, color: PURPLE, font: SANS })],
+      spacing: { after: 60 },
+    }));
+
+    // ── Artist / key ──────────────────────────────────────
+    let metaStr = artist;
+    if (key) metaStr += (metaStr ? '   Tom: ' : 'Tom: ') + key;
+    if (metaStr) {
+      paras.push(new Paragraph({
+        children: [new TextRun({ text: metaStr, size: 18, color: GRAY, font: SANS })],
+        spacing: { after: 120 },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: PURPLE, space: 4 } },
+      }));
+    } else {
+      // Still add bottom border
+      paras.push(new Paragraph({
+        children: [new TextRun({ text: '', size: 4 })],
+        spacing: { after: 80 },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: PURPLE, space: 2 } },
+      }));
+    }
+
+    // ── Blocks ────────────────────────────────────────────
+    for (const block of blocks) {
+      if (block.type === 'section') {
+        const label = (block.text || '').replace(/^\[|\]$/g, '').toUpperCase();
+        paras.push(new Paragraph({
+          children: [new TextRun({ text: label, bold: true, size: 15, color: PURPLE, font: SANS })],
+          spacing: { before: 200, after: 40 },
+          border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC', space: 4 } },
+        }));
+        continue;
+      }
+
+      // Chord line
+      const hasChords = block.chords && block.chords.length > 0;
+      const hasLyrics = block.lyrics !== undefined;
+
+      if (hasChords) {
+        const chStr = buildChordLineStr(block.chords);
+        paras.push(new Paragraph({
+          children: [new TextRun({ text: chStr, bold: true, size: 18, color: GOLD, font: MONO })],
+          spacing: { before: 60, after: 0 },
+        }));
+      }
+
+      if (hasLyrics) {
+        paras.push(new Paragraph({
+          children: [new TextRun({ text: block.lyrics || ' ', size: 18, color: BLACK, font: MONO })],
+          spacing: { before: 0, after: hasChords ? 20 : 60 },
+        }));
+      } else if (!hasChords) {
+        paras.push(new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 60 } }));
+      }
+    }
+
+    const doc = new Document({
+      creator:     'Corda',
+      title,
+      description: artist,
+      sections: [{
+        properties: {
+          page: {
+            margin: { top: 720, bottom: 720, left: 900, right: 900 }, // 720 twips = 1.27cm
+          },
+        },
+        children: paras,
+      }],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const fname = slugify(title + (artist ? '-' + artist : '')) + '.docx';
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast('📄 ' + fname + ' baixado');
+  } catch (e) {
+    console.error(e);
+    toast('❌ Erro ao gerar DOCX: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '📄 DOCX';
+  }
 }
 
 // ══════════════════════════════════════════════════════════
