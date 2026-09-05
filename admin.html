@@ -528,7 +528,8 @@ async function loadFiles() {
   try {
     const headers = { Accept: 'application/vnd.github+json' };
     if (pat) headers['Authorization'] = `Bearer ${pat}`;
-    const res = await fetch(`${API_BASE}/contents/pdfs`, { headers });
+    // cache-bust + branch explícita para ser consistente com o delete
+    const res = await fetch(`${API_BASE}/contents/pdfs?ref=${GH_BRANCH}&_=${Date.now()}`, { headers });
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
     allFiles = data
@@ -602,8 +603,14 @@ async function deleteFile(name, sha) {
       const err = await res.json();
       throw new Error(err.message || res.status);
     }
+    // remove da lista local imediatamente (sem esperar cache do GitHub)
+    allFiles = allFiles.filter(f => f.name !== name);
+    fmFiltered = fmFiltered.filter(f => f.name !== name);
+    renderFilesTable();
+    renderPLEditor();
     toast(`"${name}" excluído`);
-    await loadFiles();
+    // recarrega em background para sincronizar SHA após a deleção
+    setTimeout(loadFiles, 2000);
   } catch (e) {
     toast(`Erro: ${e.message}`);
   }
