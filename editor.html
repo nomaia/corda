@@ -1637,8 +1637,10 @@ function generatePDFBytes() {
   const rowSection = 6.0;
   const gap        = 0.8;   // mm between blocks
 
+  let drewOnPage = false;
+
   function newPageIfNeeded(need) {
-    if (y + need > maxY) { doc.addPage(); y = mT; }
+    if (y + need > maxY) { doc.addPage(); y = mT; drewOnPage = false; }
   }
 
   for (const block of blocks) {
@@ -1653,6 +1655,7 @@ function generatePDFBytes() {
       doc.setLineWidth(0.2);
       doc.line(mL, y - 3, pageW - mR, y - 3);
       y += rowSection;
+      drewOnPage = true;
       continue;
     }
 
@@ -1660,7 +1663,7 @@ function generatePDFBytes() {
     const hasChords = block.chords && block.chords.length > 0;
     const hasLyrics = block.lyrics && block.lyrics.trim();
 
-    // bloco completamente vazio → só avança um pequeno espaço, sem risco de página nova
+    // bloco completamente vazio → só avança espaço mínimo, nunca cria página nova
     if (!hasChords && !hasLyrics) {
       y += rowLyric * 0.4;
       continue;
@@ -1677,6 +1680,7 @@ function generatePDFBytes() {
         doc.text(ch.text, mL + ch.pos * chMM, y);
       }
       y += rowChord;
+      drewOnPage = true;
     }
 
     if (block.lyrics !== undefined) {
@@ -1685,10 +1689,16 @@ function generatePDFBytes() {
       doc.setTextColor(30, 30, 30);
       // truncate line so it doesn't overflow page width
       const maxCh = Math.floor((pageW - mL - mR) / chMM);
-      const line   = (block.lyrics || '').slice(0, maxCh);
+      const line   = (block.lyrics || '').slice(0, maxCh).replace(/[\r\n]/g, '');
       doc.text(line, mL, y);
+      drewOnPage = true;
     }
     y += rowLyric + gap;
+  }
+
+  // Remove última página se ficou em branco (addPage foi chamado mas nada foi desenhado)
+  if (!drewOnPage && doc.getNumberOfPages() > 1) {
+    doc.deletePage(doc.getNumberOfPages());
   }
 
   return doc.output('arraybuffer');
