@@ -764,10 +764,24 @@ for(var i=0;i<sels.length;i++){
   }
 }
 if(!pre||maxL<30){alert('Cifra n\\u00e3o encontrada nesta p\\u00e1gina');return;}
+var title=((document.querySelector('h1.t1,h1')||{}).textContent||'').trim();
+var artist=((document.querySelector('h2.t3 a,.t3 a,h2 a,.artist a,[class*="artist"] a')||{}).textContent||'').trim();
+// Fallback: parse document.title ("Roda Viva - Chico Buarque | Cifra Club")
+if(!artist){
+  var m=document.title.match(/^.+?\\s+-\\s+(.+?)\\s*[\\|\\-]/);
+  if(m)artist=m[1].trim();
+}
+// Fallback: parse from URL slug
+if(!artist||!title){
+  var parts=window.location.pathname.split('/').filter(Boolean);
+  var toTitle=function(s){return s.split('-').map(function(w,i){var low=['de','da','do','das','dos','e','a','o','com','em','no','na','por','para'];return(i>0&&low.indexOf(w.toLowerCase())>=0)?w.toLowerCase():w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();}).join(' ');};
+  if(!artist&&parts[0])artist=toTitle(parts[0]);
+  if(!title&&parts[1])title=toTitle(parts[1]);
+}
 var data={
   text:pre.textContent,
-  title:((document.querySelector('h1.t1,h1')||{}).textContent||'').trim(),
-  artist:((document.querySelector('h2.t3 a,h2 a')||{}).textContent||'').trim(),
+  title:title,
+  artist:artist,
   sourceUrl:window.location.href
 };
 var win=window.open('${editorUrl}?from=bookmarklet','_blank');
