@@ -1595,7 +1595,6 @@ function arrayBufferToBase64(buf) {
 function generatePDFBytes() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  doc.setAutoPageBreak(false); // gerenciamos quebra de página manualmente
 
   const title  = document.getElementById('ed-title').value  || 'Sem título';
   const artist = document.getElementById('ed-artist').value || '';
@@ -1639,9 +1638,12 @@ function generatePDFBytes() {
   const gap        = 0.8;   // mm between blocks
 
   let drewOnPage = false;
+  let ourPageCount = 1;
 
   function newPageIfNeeded(need) {
-    if (y + need > maxY) { doc.addPage(); y = mT; drewOnPage = false; }
+    if (y + need > maxY) {
+      doc.addPage(); y = mT; drewOnPage = false; ourPageCount++;
+    }
   }
 
   for (const block of blocks) {
@@ -1697,7 +1699,11 @@ function generatePDFBytes() {
     y += rowLyric + gap;
   }
 
-  // Remove última página se ficou em branco (addPage foi chamado mas nada foi desenhado)
+  // Remove páginas extras que o jsPDF criou internamente (auto page break)
+  while (doc.getNumberOfPages() > ourPageCount) {
+    doc.deletePage(doc.getNumberOfPages());
+  }
+  // Remove última página se nós a criamos mas não desenhamos nada nela
   if (!drewOnPage && doc.getNumberOfPages() > 1) {
     doc.deletePage(doc.getNumberOfPages());
   }
