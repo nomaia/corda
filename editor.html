@@ -1659,7 +1659,14 @@ function generatePDFBytes() {
     // CL block
     const hasChords = block.chords && block.chords.length > 0;
     const hasLyrics = block.lyrics && block.lyrics.trim();
-    const need = (hasChords ? rowChord : 0) + (hasLyrics ? rowLyric : rowLyric * 0.5) + gap;
+
+    // bloco completamente vazio → só avança um pequeno espaço, sem risco de página nova
+    if (!hasChords && !hasLyrics) {
+      y += rowLyric * 0.4;
+      continue;
+    }
+
+    const need = (hasChords ? rowChord : 0) + rowLyric + gap;
     newPageIfNeeded(need);
 
     if (hasChords) {
