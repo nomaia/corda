@@ -1732,9 +1732,11 @@ async function publishToGitHub() {
   btn.textContent = '⏳ Publicando…';
 
   try {
-    const parts = [slugify(title)];
-    if (artist) parts.push(slugify(artist));
-    const filename = parts.join(' - ') + '.pdf';
+    // "Chico Buarque - Valsinha.pdf" — mesmo padrão do DOCX, artista primeiro
+    const safeName = s => s.replace(/[\/\\:*?"<>|]/g, '-').trim();
+    const filename = (artist && title)
+      ? `${safeName(artist)} - ${safeName(title)}.pdf`
+      : safeName(title || artist || 'cifra') + '.pdf';
 
     // Generate PDF
     const pdfBuf = generatePDFBytes();
