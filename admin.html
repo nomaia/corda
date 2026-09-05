@@ -585,34 +585,34 @@ function confirmDelete(name, sha) {
 
 async function deleteFile(name, sha) {
   if (!pat) { toast('Configure o PAT primeiro'); return; }
+  const url = `${API_BASE}/contents/pdfs/${encodeURIComponent(name)}`;
+  const body = { message: `Delete: ${name}`, sha, branch: GH_BRANCH };
+  console.log('[deleteFile] →', url, body);
   try {
-    const res = await fetch(`${API_BASE}/contents/pdfs/${encodeURIComponent(name)}`, {
+    const res = await fetch(url, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${pat}`,
         'Content-Type': 'application/json',
         Accept: 'application/vnd.github+json'
       },
-      body: JSON.stringify({
-        message: `Delete: ${name}`,
-        sha,
-        branch: GH_BRANCH
-      })
+      body: JSON.stringify(body)
     });
+    const payload = await res.json().catch(() => ({}));
+    console.log('[deleteFile] status', res.status, payload);
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || res.status);
+      throw new Error(`${res.status} — ${payload.message || 'sem mensagem'}`);
     }
-    // remove da lista local imediatamente (sem esperar cache do GitHub)
+    // remove da lista local imediatamente
     allFiles = allFiles.filter(f => f.name !== name);
     fmFiltered = fmFiltered.filter(f => f.name !== name);
     renderFilesTable();
     renderPLEditor();
-    toast(`"${name}" excluído`);
-    // recarrega em background para sincronizar SHA após a deleção
+    toast(`✓ "${name}" excluído`);
     setTimeout(loadFiles, 2000);
   } catch (e) {
-    toast(`Erro: ${e.message}`);
+    console.error('[deleteFile] erro:', e);
+    toast(`Erro ao excluir: ${e.message}`);
   }
 }
 
