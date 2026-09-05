@@ -10,13 +10,13 @@
     :root {
       --purple:      #5C2B8C;
       --purple-dark: #3d1a63;
-      --gold:        #D4A843;
-      --bg:          #12111a;
-      --surface:     #1e1b2e;
-      --surface2:    #2a2640;
-      --text:        #e8e6f0;
-      --text-dim:    #8a88a0;
-      --chord-color: #D4A843;
+      --gold:        #C49A1A;
+      --bg:          #fafaf8;
+      --surface:     #ffffff;
+      --surface2:    #f0edf8;
+      --text:        #1a1528;
+      --text-dim:    #7a7490;
+      --chord-color: #5C2B8C;
       --fs:          15px;
     }
 
@@ -402,8 +402,8 @@
       transition: background .1s;
       top: 0;
     }
-    .ck:hover  { background: rgba(212,168,67,.18); }
-    .ck.active { background: rgba(212,168,67,.28); outline: 1px solid var(--gold); }
+    .ck:hover  { background: rgba(92,43,140,.12); }
+    .ck.active { background: rgba(92,43,140,.20); outline: 1px solid var(--purple); }
 
     .lyric-row {
       font-family: 'Courier New', Courier, monospace;
@@ -414,7 +414,7 @@
       min-height: 1.45em;
       line-height: 1.45;
       padding: 1px 0;
-      caret-color: var(--gold);
+      caret-color: var(--purple);
     }
     .lyric-row:empty::before { content: '\00a0'; }
 
@@ -520,7 +520,7 @@
 
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.13); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: rgba(92,43,140,.20); border-radius: 3px; }
 
     /* ─── PRINT ─────────────────────────────────────────── */
     #print-hdr { display: none; }
@@ -541,14 +541,14 @@
         border-bottom: 2px solid var(--purple);
         padding-bottom: 8px;
       }
-      #ph-title { font-size: 18pt; color: #000; font-weight: 800; }
-      #ph-meta  { font-size: 10pt; color: #444; margin-top: 3px; }
+      #ph-title { font-size: 18pt; color: var(--purple); font-weight: 800; }
+      #ph-meta  { font-size: 10pt; color: #C49A1A; margin-top: 3px; }
 
       .block { padding-left: 0; page-break-inside: avoid; margin-bottom: 1px; }
 
       .sec-label {
-        color: var(--purple);
-        border-top: 1px solid #ccc;
+        color: #C49A1A;
+        border-top: 1px solid #ddd;
         padding-top: 8pt;
         margin-top: 8pt;
         font-size: 8pt;
@@ -1392,10 +1392,10 @@ function generatePDFBytes() {
       newPageIfNeeded(rowSection);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
-      doc.setTextColor(92, 43, 140);
+      doc.setTextColor(196, 154, 26);  // gold
       doc.text((block.text || '').replace(/^\[|\]$/g, '').toUpperCase(), mL, y);
       // thin rule above section
-      doc.setDrawColor(220, 180, 80);
+      doc.setDrawColor(196, 154, 26);
       doc.setLineWidth(0.2);
       doc.line(mL, y - 3, pageW - mR, y - 3);
       y += rowSection;
@@ -1411,7 +1411,7 @@ function generatePDFBytes() {
     if (hasChords) {
       doc.setFont('courier', 'bold');
       doc.setFontSize(cFsz);
-      doc.setTextColor(160, 110, 10);
+      doc.setTextColor(92, 43, 140);  // purple
       for (const ch of block.chords) {
         doc.text(ch.text, mL + ch.pos * chMM, y);
       }
@@ -1516,7 +1516,7 @@ function xmlEsc(s) {
 }
 
 function buildDocumentXml(title, artist, key, blks) {
-  const PURPLE = '5C2B8C', GOLD = 'A07010', GRAY = '888888', BLACK = '1A1A1A';
+  const PURPLE = '5C2B8C', GOLD = 'C49A1A', GRAY = '888888', BLACK = '1A1A1A';
   const sz = pt => pt * 2;
 
   const rProps = (font, ptsz, color, bold) =>
@@ -1534,14 +1534,14 @@ function buildDocumentXml(title, artist, key, blks) {
   for (const block of blks) {
     if (block.type === 'section') {
       const label = (block.text || '').replace(/^\[|\]$/g, '').toUpperCase();
-      body += `<w:p><w:pPr><w:spacing w:before="200" w:after="40"/><w:pBdr><w:top w:val="single" w:sz="4" w:space="4" w:color="CCCCCC"/></w:pBdr></w:pPr><w:r>${rProps('Calibri',8,PURPLE,true)}<w:t>${xmlEsc(label)}</w:t></w:r></w:p>`;
+      body += `<w:p><w:pPr><w:spacing w:before="200" w:after="40"/><w:pBdr><w:top w:val="single" w:sz="4" w:space="4" w:color="${GOLD}"/></w:pBdr></w:pPr><w:r>${rProps('Calibri',8,GOLD,true)}<w:t>${xmlEsc(label)}</w:t></w:r></w:p>`;
       continue;
     }
     const hasChords = block.chords && block.chords.length > 0;
     const lyrics    = block.lyrics || '';
     if (hasChords) {
       const chStr = buildChordLineStr(block.chords);
-      body += `<w:p><w:pPr><w:spacing w:before="60" w:after="0"/></w:pPr><w:r>${rProps('Courier New',9,GOLD,true)}<w:t xml:space="preserve">${xmlEsc(chStr)}</w:t></w:r></w:p>`;
+      body += `<w:p><w:pPr><w:spacing w:before="60" w:after="0"/></w:pPr><w:r>${rProps('Courier New',9,PURPLE,true)}<w:t xml:space="preserve">${xmlEsc(chStr)}</w:t></w:r></w:p>`;
     }
     body += `<w:p><w:pPr><w:spacing w:before="0" w:after="${hasChords?'20':'60'}"/></w:pPr><w:r>${rProps('Courier New',9,BLACK,false)}<w:t xml:space="preserve">${xmlEsc(lyrics||' ')}</w:t></w:r></w:p>`;
   }
