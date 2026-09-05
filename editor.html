@@ -1595,6 +1595,7 @@ function arrayBufferToBase64(buf) {
 function generatePDFBytes() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  doc.setAutoPageBreak(false); // gerenciamos quebra de página manualmente
 
   const title  = document.getElementById('ed-title').value  || 'Sem título';
   const artist = document.getElementById('ed-artist').value || '';
