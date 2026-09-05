@@ -871,7 +871,7 @@ function cleanRawText(text) {
     .split('\n')
     .map(line =>
       line
-        .replace(/^[\s"'>]+(?=[A-G])/, '')   // strip "> artifacts
+        .replace(/^["'>]+(?=[A-G])/, '')      // strip "> artifacts (preserva espaços de posição)
         .replace(/&#\d+;/g, ' ')
         .replace(/&nbsp;/g, ' ')
         .replace(/&amp;/g, '&')
