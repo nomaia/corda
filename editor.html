@@ -1059,10 +1059,11 @@ function switchTab(t) {
 // CHORD DETECTION
 // ══════════════════════════════════════════════════════════
 function isChordToken(t) {
-  if (!t || t.length > 16) return false;
+  if (!t || t.length > 20) return false;
   if (!/^[A-G]/.test(t)) return false;
   // inclui °/º (diminuto — U+00B0 e U+00BA), ø (meio-diminuto), △ (major7 jazz)
-  return /^[A-G][b#]?[mMmajmindimsusaddaug0-9b#()\/\\+\-°ºø△]*$/.test(t);
+  // A-G no final para suportar cifras com baixo: C7/E, D7/F#, Bb/D, etc.
+  return /^[A-G][b#]?[mMmajmindimsusaddaugA-G0-9b#()\/\\+\-°ºø△]*$/.test(t);
 }
 
 const SECTION_RE = /^\[.+\]$/;
