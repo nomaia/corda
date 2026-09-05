@@ -579,8 +579,10 @@ function filterFmFiles(q) {
    DELETE FILE
 ══════════════════════════════════════════ */
 function confirmDelete(name, sha) {
-  confirm2(`Excluir "${name}"?`, `Esta ação não pode ser desfeita. O arquivo será removido do repositório.`,
-    () => deleteFile(name, sha));
+  console.log('[confirmDelete]', name, sha.slice(0,8));
+  if (window.confirm(`Excluir "${name}"?\n\nEsta ação não pode ser desfeita.`)) {
+    deleteFile(name, sha);
+  }
 }
 
 async function deleteFile(name, sha) {
