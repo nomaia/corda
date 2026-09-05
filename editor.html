@@ -1746,13 +1746,14 @@ function buildDocumentXml(title, artist, key, blks) {
 
   let body = '';
 
-  // Title
-  body += `<w:p><w:pPr><w:spacing w:after="80"/></w:pPr><w:r>${rProps('Calibri',18,PURPLE,true)}<w:t>${xmlEsc(title)}</w:t></w:r></w:p>`;
+  // "Artista - Título" em roxo, negrito
+  const heading = artist ? `${artist} - ${title}` : title;
+  body += `<w:p><w:pPr><w:spacing w:after="40"/></w:pPr><w:r>${rProps('Calibri',16,PURPLE,true)}<w:t>${xmlEsc(heading)}</w:t></w:r></w:p>`;
 
-  // Artist line + key badge with bottom border
-  body += `<w:p><w:pPr><w:spacing w:after="120"/><w:pBdr><w:bottom w:val="single" w:sz="8" w:space="4" w:color="${PURPLE}"/></w:pBdr></w:pPr>`;
-  if (artist) body += `<w:r>${rProps('Calibri',9,GRAY,false)}<w:t xml:space="preserve">${xmlEsc(artist)}</w:t></w:r>`;
-  if (key)    body += `<w:r>${rProps('Calibri',9,GOLD,true)}<w:t xml:space="preserve">${artist ? '   ▸ Tom: ' : 'Tom: '}${xmlEsc(key)}</w:t></w:r>`;
+  // "Tom: Bm" em dourado + borda inferior roxa
+  const keyLine = key ? `Tom: ${key}` : '';
+  body += `<w:p><w:pPr><w:spacing w:after="160"/><w:pBdr><w:bottom w:val="single" w:sz="8" w:space="4" w:color="${PURPLE}"/></w:pBdr></w:pPr>`;
+  if (keyLine) body += `<w:r>${rProps('Calibri',10,GOLD,true)}<w:t>${xmlEsc(keyLine)}</w:t></w:r>`;
   body += `</w:p>`;
 
   for (const block of blks) {
