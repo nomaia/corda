@@ -1059,17 +1059,23 @@ function switchTab(t) {
 // CHORD DETECTION
 // ══════════════════════════════════════════════════════════
 function isChordToken(t) {
-  if (!t || t.length > 14) return false;
+  if (!t || t.length > 16) return false;
   if (!/^[A-G]/.test(t)) return false;
-  return /^[A-G][b#]?[mMmajmindimsusaddaug0-9b#()\\/+\-]*$/.test(t);
+  // inclui ° (diminuto), ø (meio-diminuto), △ (major7 jazz)
+  return /^[A-G][b#]?[mMmajmindimsusaddaug0-9b#()\/\\+\-°ø△]*$/.test(t);
 }
 
 const SECTION_RE = /^\[.+\]$/;
 
+// Detecta se uma linha começa com um label de seção seguido de acordes:
+// ex: "[Intro] Em7  A7  D7M"
+const SECTION_PREFIX_RE = /^\[([^\]]+)\]\s+(.+)$/;
+
 function isChordLine(line) {
   const tokens = line.trim().split(/\s+/).filter(Boolean);
   if (!tokens.length) return false;
-  const real = tokens.filter(t => !/^[|:x]+$/i.test(t));
+  // ignora marcadores de tablatura e seções inline como [Intro]
+  const real = tokens.filter(t => !/^[|:x]+$/i.test(t) && !/^\[/.test(t));
   if (!real.length) return false;
   return real.every(t => isChordToken(t));
 }
@@ -1128,6 +1134,31 @@ function parseCifraText(rawText) {
     if (SECTION_RE.test(trimmed)) {
       result.push({ type: 'section', text: trimmed });
       i++;
+      continue;
+    }
+
+    // "[Intro] Em7  A7  D7M" — seção e acordes na mesma linha
+    const sectionWithChords = trimmed.match(SECTION_PREFIX_RE);
+    if (sectionWithChords) {
+      const [, secLabel, chordPart] = sectionWithChords;
+      result.push({ type: 'section', text: `[${secLabel}]` });
+      // Trata o restante como linha de acordes (preservando indentação relativa)
+      const chordLine = chordPart;
+      if (isChordLine(chordLine)) {
+        const chords = parseChordPositions(chordLine);
+        let lyrics = '';
+        if (i + 1 < lines.length) {
+          const nxt = lines[i + 1];
+          if (nxt.trim() && !isChordLine(nxt) && !SECTION_RE.test(nxt.trim())) {
+            lyrics = nxt.replace(/\t/g, '    ');
+            i += 2;
+          } else { i++; }
+        } else { i++; }
+        result.push({ type: 'cl', chords, lyrics });
+      } else {
+        result.push({ type: 'cl', chords: [], lyrics: chordLine });
+        i++;
+      }
       continue;
     }
 
