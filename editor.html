@@ -962,7 +962,7 @@ function _isMinor(chord) {
   const root = _rootOf(chord);
   if (!root) return false;
   const rest = chord.slice(root.length);
-  return /^(m(?!aj|M|\d*[Mm][Aa][Jj])|\bmin\b|dim|°)/.test(rest);
+  return /^(m(?!aj|M|\d*[Mm][Aa][Jj])|\bmin\b|dim|[°º])/.test(rest);
 }
 
 /**
@@ -1061,8 +1061,8 @@ function switchTab(t) {
 function isChordToken(t) {
   if (!t || t.length > 16) return false;
   if (!/^[A-G]/.test(t)) return false;
-  // inclui ° (diminuto), ø (meio-diminuto), △ (major7 jazz)
-  return /^[A-G][b#]?[mMmajmindimsusaddaug0-9b#()\/\\+\-°ø△]*$/.test(t);
+  // inclui °/º (diminuto — U+00B0 e U+00BA), ø (meio-diminuto), △ (major7 jazz)
+  return /^[A-G][b#]?[mMmajmindimsusaddaug0-9b#()\/\\+\-°ºø△]*$/.test(t);
 }
 
 const SECTION_RE = /^\[.+\]$/;
