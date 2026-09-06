@@ -221,22 +221,36 @@
   .pl-editor-name {
     font-size: 1.1rem; font-weight: 700; color: var(--primary);
   }
-  .pl-pdf-grid { display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow-y: auto; }
-  .pl-pdf-row {
+  .pl-pdf-grid { display: flex; flex-direction: column; gap: 4px; }
+  /* ── cifras NA playlist (arrastáveis) ── */
+  .pl-in-list { display: flex; flex-direction: column; gap: 4px; min-height: 32px;
+    max-height: 320px; overflow-y: auto; padding: 2px; }
+  .pl-drag-row {
     display: flex; align-items: center; gap: 10px;
     padding: 9px 12px; border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    cursor: grab; user-select: none; transition: box-shadow .15s, opacity .15s;
+  }
+  .pl-drag-row:active { cursor: grabbing; }
+  .pl-drag-row.dragging { opacity: .4; box-shadow: none; }
+  .pl-drag-row.drag-over { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
+  .drag-handle { color: var(--text-muted); font-size: 1rem; flex-shrink: 0; cursor: grab; }
+  /* ── cifras FORA da playlist (checkboxes) ── */
+  .pl-out-section { margin-top: 14px; }
+  .pl-out-label { font-size: .75rem; font-weight: 700; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .pl-out-list { display: flex; flex-direction: column; gap: 4px;
+    max-height: 220px; overflow-y: auto; }
+  .pl-pdf-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: 8px;
     background: var(--bg); border: 1px solid var(--border);
   }
   .pl-pdf-row input[type=checkbox] { accent-color: var(--primary); width: 16px; height: 16px; flex-shrink: 0; }
   .pl-pdf-name { flex: 1; font-size: .875rem; font-weight: 500; }
-  .pl-pdf-row .move-btns { display: flex; gap: 4px; }
-  .move-btn {
-    background: none; border: 1px solid var(--border);
-    border-radius: 4px; padding: 2px 6px; cursor: pointer;
-    font-size: .8rem; color: var(--text-muted); transition: all .15s;
-  }
-  .move-btn:hover { border-color: var(--primary-light); color: var(--primary); }
-  .move-btn:disabled { opacity: .3; cursor: default; }
+  /* remove botões ↑↓ antigos */
+  .pl-pdf-row .move-btns { display: none; }
+  .move-btn { display: none; }
 
   /* ── NEW PL FORM ── */
   .new-pl-form { display: flex; gap: 8px; }
@@ -806,31 +820,42 @@ function renderPLEditor() {
   }
 
   const pl = playlists[selectedPL];
-  // All files, checked = in playlist
   const allNames = allFiles.map(f => f.name);
-  // Files in playlist that might not be in repo (keep them in list grayed)
   const missing = pl.filter(f => !allNames.includes(f));
-  const allForPL = [...allNames, ...missing];
+  const outside = allNames.filter(n => !pl.includes(n));
 
-  editor.innerHTML = `<div class="pl-editor-title">Editando: <span class="pl-editor-name">${escHtml(selectedPL)}</span></div>
-    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px">${pl.length} cifra${pl.length !== 1 ? 's' : ''} na playlist</p>
-    <div class="pl-pdf-grid" id="pl-pdf-grid">
-    ${pl.length === 0 && allForPL.length === 0
-      ? `<p style="color:var(--text-muted);font-size:.875rem">Nenhum arquivo no repositório.</p>`
-      : allForPL.map((name, idx) => {
-          const inPL = pl.includes(name);
-          const plIdx = pl.indexOf(name);
-          return `<div class="pl-pdf-row">
-            <input type="checkbox" ${inPL ? 'checked' : ''} onchange="togglePLFile('${escAttr(name)}', this.checked)">
-            <span class="pl-pdf-name">${escHtml(name.replace(/\.pdf$/i,''))}</span>
-            ${inPL ? `<div class="move-btns">
-              <button class="move-btn" ${plIdx === 0 ? 'disabled' : ''} onclick="movePLFile('${escAttr(name)}', -1)" title="Subir">↑</button>
-              <button class="move-btn" ${plIdx === pl.length - 1 ? 'disabled' : ''} onclick="movePLFile('${escAttr(name)}', 1)" title="Descer">↓</button>
-            </div>` : ''}
-          </div>`;
-        }).join('')
-    }
-    </div>`;
+  const inRows = pl.map(name =>
+    `<div class="pl-drag-row" draggable="true" data-name="${escAttr(name)}"
+        ondragstart="onDragStart(event)" ondragover="onDragOver(event)"
+        ondrop="onDrop(event)" ondragend="onDragEnd(event)">
+      <span class="drag-handle">⠿</span>
+      <span class="pl-pdf-name">${escHtml(name.replace(/\.pdf$/i,''))}</span>
+      <button class="move-btn" style="display:flex;padding:3px 8px;font-size:.8rem;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--danger)"
+        onclick="togglePLFile('${escAttr(name)}', false)" title="Remover">✕</button>
+    </div>`
+  ).join('');
+
+  const outRows = [...outside, ...missing].map(name =>
+    `<div class="pl-pdf-row">
+      <input type="checkbox" onchange="togglePLFile('${escAttr(name)}', this.checked)">
+      <span class="pl-pdf-name" style="${missing.includes(name) ? 'color:var(--text-muted)' : ''}">${escHtml(name.replace(/\.pdf$/i,''))}</span>
+    </div>`
+  ).join('');
+
+  editor.innerHTML = `
+    <div class="pl-editor-title">Editando: <span class="pl-editor-name">${escHtml(selectedPL)}</span></div>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px">
+      ${pl.length} cifra${pl.length !== 1 ? 's' : ''} — arraste para reordenar
+    </p>
+    <div class="pl-in-list" id="pl-in-list"
+      ondragover="onDragOver(event)" ondrop="onDrop(event)">
+      ${pl.length ? inRows : '<p style="color:var(--text-muted);font-size:.85rem;padding:8px 0">Nenhuma cifra ainda — adicione abaixo.</p>'}
+    </div>
+    ${outside.length || missing.length ? `
+    <div class="pl-out-section">
+      <div class="pl-out-label">Adicionar à playlist</div>
+      <div class="pl-out-list">${outRows}</div>
+    </div>` : ''}`;
 }
 
 function selectPL(pl) {
@@ -876,16 +901,51 @@ function togglePLFile(name, checked) {
   renderPLEditor();
 }
 
-function movePLFile(name, delta) {
-  if (!selectedPL) return;
+/* ── DRAG & DROP ── */
+let dragSrc = null;
+
+function onDragStart(e) {
+  dragSrc = e.currentTarget;
+  dragSrc.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragSrc.dataset.name);
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const row = e.target.closest('.pl-drag-row');
+  document.querySelectorAll('.pl-drag-row.drag-over').forEach(r => r.classList.remove('drag-over'));
+  if (row && row !== dragSrc) row.classList.add('drag-over');
+}
+
+function onDrop(e) {
+  e.preventDefault();
+  const row = e.target.closest('.pl-drag-row');
+  document.querySelectorAll('.pl-drag-row.drag-over').forEach(r => r.classList.remove('drag-over'));
+  if (!dragSrc || !selectedPL) return;
   const arr = playlists[selectedPL];
-  const i = arr.indexOf(name);
-  if (i < 0) return;
-  const j = i + delta;
-  if (j < 0 || j >= arr.length) return;
-  [arr[i], arr[j]] = [arr[j], arr[i]];
+  const from = arr.indexOf(dragSrc.dataset.name);
+  if (from < 0) return;
+  // Drop on a row → insert before it; drop on empty area → move to end
+  let to = arr.length;
+  if (row && row !== dragSrc) {
+    const toName = row.dataset.name;
+    to = arr.indexOf(toName);
+    if (to < 0) to = arr.length;
+    if (to > from) to--; // adjust for removal
+  }
+  const [item] = arr.splice(from, 1);
+  arr.splice(to, 0, item);
   playlists[selectedPL] = arr;
   renderPLEditor();
+}
+
+function onDragEnd(e) {
+  document.querySelectorAll('.pl-drag-row').forEach(r => {
+    r.classList.remove('dragging', 'drag-over');
+  });
+  dragSrc = null;
 }
 
 async function savePlaylists() {
