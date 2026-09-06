@@ -314,7 +314,15 @@
       </div>
     </div>
     <div id="playlist-detail-view" style="display:none">
-      <div class="section-title" id="detail-title"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div class="section-title" id="detail-title" style="margin-bottom:0"></div>
+        <div id="pl-sort-toggle" style="display:flex;border:1.5px solid var(--primary);border-radius:20px;overflow:hidden;font-size:.75rem;font-weight:600">
+          <button id="sort-custom-btn" onclick="setPlSort('custom')"
+            style="padding:4px 12px;border:none;cursor:pointer;background:var(--primary);color:#fff;transition:all .15s">Personalizada</button>
+          <button id="sort-alpha-btn" onclick="setPlSort('alpha')"
+            style="padding:4px 12px;border:none;cursor:pointer;background:none;color:var(--primary);transition:all .15s">A–Z</button>
+        </div>
+      </div>
       <div id="detail-file-list" class="file-list"></div>
     </div>
   </div>
@@ -512,18 +520,38 @@ function renderPlaylists() {
 /* ══════════════════════════════════════════
    PLAYLIST DETAIL
 ══════════════════════════════════════════ */
+let currentPL  = null;
+let plSortMode = 'custom'; // 'custom' | 'alpha'
+
 function openPlaylistDetail(pl) {
+  currentPL = pl;
   document.getElementById('playlist-list-view').style.display  = 'none';
   document.getElementById('playlist-detail-view').style.display = 'block';
   document.getElementById('back-btn').style.display = 'flex';
   document.getElementById('header-title').textContent = pl;
   document.getElementById('detail-title').textContent = pl;
+  renderPLDetail();
+}
 
-  const files = playlists[pl] || [];
+function setPlSort(mode) {
+  plSortMode = mode;
+  document.getElementById('sort-custom-btn').style.background = mode === 'custom' ? 'var(--primary)' : 'none';
+  document.getElementById('sort-custom-btn').style.color      = mode === 'custom' ? '#fff' : 'var(--primary)';
+  document.getElementById('sort-alpha-btn').style.background  = mode === 'alpha'  ? 'var(--primary)' : 'none';
+  document.getElementById('sort-alpha-btn').style.color       = mode === 'alpha'  ? '#fff' : 'var(--primary)';
+  renderPLDetail();
+}
+
+function renderPLDetail() {
+  if (!currentPL) return;
   const detail = document.getElementById('detail-file-list');
+  let files = [...(playlists[currentPL] || [])];
   if (!files.length) {
     detail.innerHTML = `<div class="empty-state"><div class="empty-icon">📄</div><p>Playlist vazia.</p></div>`;
     return;
+  }
+  if (plSortMode === 'alpha') {
+    files = files.sort((a, b) => a.localeCompare(b, 'pt'));
   }
   detail.innerHTML = files.map(name => {
     const f = allFiles.find(x => x.name === name) || { name, size: 0 };
@@ -532,6 +560,7 @@ function openPlaylistDetail(pl) {
 }
 
 function closePlaylistDetail() {
+  currentPL = null;
   document.getElementById('playlist-list-view').style.display  = 'block';
   document.getElementById('playlist-detail-view').style.display = 'none';
   document.getElementById('back-btn').style.display = 'none';
