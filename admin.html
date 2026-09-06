@@ -761,9 +761,14 @@ function fileToBase64(file) {
 ══════════════════════════════════════════ */
 async function loadPlaylists() {
   try {
-    const res = await fetch(`${RAW_BASE}/playlists.json?t=${Date.now()}`);
+    // Use Contents API (not raw CDN) to avoid cache staleness after saves
+    const headers = { Accept: 'application/vnd.github+json' };
+    if (pat) headers['Authorization'] = `Bearer ${pat}`;
+    const res = await fetch(`${API_BASE}/contents/playlists.json?ref=${GH_BRANCH}&_=${Date.now()}`, { headers });
     if (!res.ok) throw new Error(res.status);
-    playlists = await res.json();
+    const data = await res.json();
+    // data.content is base64-encoded
+    playlists = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g, '')))));
   } catch {
     playlists = {};
   }
@@ -886,9 +891,9 @@ function movePLFile(name, delta) {
 async function savePlaylists() {
   if (!pat) { toast('Configure o PAT primeiro'); return; }
   try {
-    // Get current SHA of playlists.json
+    // Get current SHA of playlists.json (must specify branch to avoid cross-branch sha mismatch)
     let sha = undefined;
-    const checkRes = await fetch(`${API_BASE}/contents/playlists.json`, {
+    const checkRes = await fetch(`${API_BASE}/contents/playlists.json?ref=${GH_BRANCH}`, {
       headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github+json' }
     });
     if (checkRes.ok) {
@@ -917,6 +922,7 @@ async function savePlaylists() {
       const err = await res.json();
       throw new Error(err.message || res.status);
     }
+    renderPLList();
     toast('✅ Playlists salvas no GitHub!');
   } catch (e) {
     toast(`Erro ao salvar: ${e.message}`);
