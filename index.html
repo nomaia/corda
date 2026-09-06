@@ -423,9 +423,11 @@ async function loadFiles() {
 
 async function loadPlaylists() {
   try {
-    const res = await fetch(`${RAW_BASE}/playlists.json?t=${Date.now()}`);
+    // Contents API avoids CDN cache — garante dados frescos após edições no admin
+    const res = await fetch(`${API_BASE}/contents/playlists.json?ref=${GH_BRANCH}&_=${Date.now()}`);
     if (!res.ok) throw new Error(res.status);
-    playlists = await res.json();
+    const data = await res.json();
+    playlists = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g, '')))));
   } catch (e) {
     console.warn('loadPlaylists error', e);
     playlists = {};
